@@ -5,78 +5,31 @@ alwaysApply: true
 
 # Git & GitHub CLI Workflow Rules
 
-# 🚨 IMPORTANT: ASK USER IF THEY MERGED ANY PRs! 🚨
-**Before starting ANY new task, always ask the user:**
-"Have you merged any PRs? If so, let me know so I can switch back to main and pull the latest changes."
+# 🚨 USER MANAGES ALL GIT OPERATIONS 🚨
+**The user (YibinLong) handles all git/branch/PR management.**
 
-When user confirms they merged a PR:
-1. Run: `git checkout main`
-2. Run: `git pull origin main`
-3. Confirm: "✅ Switched to main and pulled latest changes. Ready for next task!"
+## AI's Role: Commit Message Advisor ONLY
 
-## ✅ ALLOWED Operations:
-- Create commits with clear, descriptive messages
-- Create feature branches (use naming convention: `feature/<task-name>`)
-- Push branches to remote
-- Create pull requests using `gh pr create`
-- Add commit messages following conventional commits format when appropriate
-- Stage files for commits
+### What AI Does:
+1. **Organize code changes into logical commits**
+   - When user has made many changes, suggest how to split them into separate commits
+   - Group related changes together (e.g., "all auth files", "all UI updates", "config changes")
 
-## ❌ PROHIBITED Operations:
-- **NEVER merge pull requests** - Only the user (YibinLong) can merge PRs manually
-- **NEVER force push** (`git push --force` or `git push -f`)
-- **NEVER delete branches** without explicit user permission
-- **NEVER rewrite history** on main/master branch (no hard reset, rebase on main)
-- **NEVER skip hooks** (--no-verify, --no-gpg-sign)
-- **NEVER push directly to main/master** - Always use feature branches
+2. **Suggest if changes should be in separate PRs**
+   - If changes are unrelated or too large, recommend splitting into multiple PRs
+   - Example: "This looks like 2 PRs - one for Firebase setup, one for UI components"
 
-## Git Best Practices:
-1. Always create a feature branch for new work
-2. Use clear commit messages that explain WHAT and WHY
-3. Create PRs with detailed descriptions
-4. Reference task numbers from TASK_LIST.md in commits/PRs
-5. Keep commits atomic and focused on single tasks
+3. **Create commits with conventional commit messages**
+   - Run `git add` and `git commit` commands
+   - Generate proper commit messages for each logical group of changes
+   - Follow format: `<type>: <lowercase description>`
 
-## Branch Naming Convention:
-- Feature: `feature/<task-description>`
-- Bugfix: `bugfix/<issue-description>`
-- Hotfix: `hotfix/<critical-fix>`
-- Example: `feature/firebase-setup`, `feature/chat-ui`
-
-## Automated Branch Workflow (GitHub Desktop Style):
-
-### The Goal: User sees their changes at ALL times, minimal disruption
-
-### Step-by-Step Workflow:
-1. **User works on main branch** - makes changes, sees everything immediately
-2. **When ready to commit (user or AI decides)**:
-   - AI creates feature branch WITH current changes: `git checkout -b feature/xyz`
-   - All files still visible (nothing disappears!)
-   - AI commits changes
-   - AI pushes feature branch
-   - AI creates PR
-   - **AI LEAVES user ON the feature branch** ← KEY!
-3. **User stays on feature branch** - continues seeing all changes
-   - Can keep working and add more commits to same PR if needed
-   - Changes remain visible at all times
-4. **User merges PR on GitHub** (manually, as per rules)
-5. **User tells AI "I merged the PR" or "merged" or starts new task**:
-   - AI automatically runs: `git checkout main && git pull origin main`
-   - User now on main with all merged changes
-   - Ready to start next feature (repeat from step 1)
-
-### Critical Rules:
-- ❌ **DO NOT** automatically switch user back to main after creating PR
-- ❌ **DO NOT** switch branches without user knowing
-- ✅ **DO** keep user on feature branch until they confirm PR is merged
-- ✅ **DO** ask if PR is merged before starting new work
-- ✅ **DO** automatically switch to main + pull when user confirms merge
-
-### Why This Works:
-- User sees changes continuously (main → feature branch → main)
-- Only ONE moment of switching: after merge, back to main
-- User can keep working on feature branch even after PR created
-- Matches familiar GitHub Desktop workflow
+### What AI Does NOT Do:
+- ❌ Create branches (user does this)
+- ❌ Push code (user does this via GitHub Desktop)
+- ❌ Create PRs (user does this)
+- ❌ Merge PRs (user does this)
+- ❌ Switch branches (user does this)
 
 ## Commit Message Format:
 **ALWAYS use Conventional Commits format:**
@@ -100,9 +53,10 @@ Related to: Task X.X.X from TASK_LIST.md
 
 ### Commit Message Rules:
 1. **Always start with type prefix** (e.g., `feat:`, `fix:`, `docs:`)
-2. **First word after colon should be lowercase** unless it's a proper noun (e.g., Firebase, React, GitHub)
-3. Keep summary concise and descriptive
-4. Use imperative mood (e.g., "add" not "added", "fix" not "fixed")
+2. **First word after colon MUST be lowercase** - NO EXCEPTIONS
+3. Proper nouns can be capitalized (e.g., Firebase, React, GitHub)
+4. Keep summary concise and descriptive
+5. Use imperative mood (e.g., "add" not "added", "fix" not "fixed")
 
 ### Examples:
 - ✅ `feat: add user authentication with Firebase`
@@ -111,5 +65,28 @@ Related to: Task X.X.X from TASK_LIST.md
 - ✅ `refactor: improve Firebase initialization logic`
 - ✅ `chore: add ESLint configuration`
 - ❌ `Add user authentication` (missing type)
-- ❌ `feat: Add user authentication` (should be lowercase "add")
+- ❌ `feat: Add user authentication` (capital A - WRONG!)
 - ❌ `Added authentication` (wrong tense)
+
+## Example Workflow:
+
+**User**: "I made a bunch of changes, help me organize commits"
+
+**AI Response**:
+"I see changes in 3 areas. Here's how I'd split them:
+
+**Commit 1** (Firebase setup):
+- `firebase.config.js`
+- `package.json` (Firebase dependencies)
+**Message**: `feat: add Firebase configuration and dependencies`
+
+**Commit 2** (Authentication):
+- `src/auth/login.js`
+- `src/auth/signup.js`
+**Message**: `feat: implement user authentication flow`
+
+**Commit 3** (Documentation):
+- `README.md`
+**Message**: `docs: add Firebase setup instructions`
+
+**Recommendation**: These can all go in one PR called 'Firebase Authentication Setup'"
