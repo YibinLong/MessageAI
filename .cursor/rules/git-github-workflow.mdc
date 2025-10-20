@@ -5,6 +5,15 @@ alwaysApply: true
 
 # Git & GitHub CLI Workflow Rules
 
+# 🚨 IMPORTANT: ASK USER IF THEY MERGED ANY PRs! 🚨
+**Before starting ANY new task, always ask the user:**
+"Have you merged any PRs? If so, let me know so I can switch back to main and pull the latest changes."
+
+When user confirms they merged a PR:
+1. Run: `git checkout main`
+2. Run: `git pull origin main`
+3. Confirm: "✅ Switched to main and pulled latest changes. Ready for next task!"
+
 ## ✅ ALLOWED Operations:
 - Create commits with clear, descriptive messages
 - Create feature branches (use naming convention: `feature/<task-name>`)
@@ -33,6 +42,41 @@ alwaysApply: true
 - Bugfix: `bugfix/<issue-description>`
 - Hotfix: `hotfix/<critical-fix>`
 - Example: `feature/firebase-setup`, `feature/chat-ui`
+
+## Automated Branch Workflow (GitHub Desktop Style):
+
+### The Goal: User sees their changes at ALL times, minimal disruption
+
+### Step-by-Step Workflow:
+1. **User works on main branch** - makes changes, sees everything immediately
+2. **When ready to commit (user or AI decides)**:
+   - AI creates feature branch WITH current changes: `git checkout -b feature/xyz`
+   - All files still visible (nothing disappears!)
+   - AI commits changes
+   - AI pushes feature branch
+   - AI creates PR
+   - **AI LEAVES user ON the feature branch** ← KEY!
+3. **User stays on feature branch** - continues seeing all changes
+   - Can keep working and add more commits to same PR if needed
+   - Changes remain visible at all times
+4. **User merges PR on GitHub** (manually, as per rules)
+5. **User tells AI "I merged the PR" or "merged" or starts new task**:
+   - AI automatically runs: `git checkout main && git pull origin main`
+   - User now on main with all merged changes
+   - Ready to start next feature (repeat from step 1)
+
+### Critical Rules:
+- ❌ **DO NOT** automatically switch user back to main after creating PR
+- ❌ **DO NOT** switch branches without user knowing
+- ✅ **DO** keep user on feature branch until they confirm PR is merged
+- ✅ **DO** ask if PR is merged before starting new work
+- ✅ **DO** automatically switch to main + pull when user confirms merge
+
+### Why This Works:
+- User sees changes continuously (main → feature branch → main)
+- Only ONE moment of switching: after merge, back to main
+- User can keep working on feature branch even after PR created
+- Matches familiar GitHub Desktop workflow
 
 ## Commit Message Format:
 **ALWAYS use Conventional Commits format:**
