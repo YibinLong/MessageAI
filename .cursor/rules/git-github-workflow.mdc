@@ -1,0 +1,71 @@
+---
+description: Git and GitHub CLI workflow rules for WhatsApp Clone project
+alwaysApply: true
+---
+
+# Git & GitHub CLI Workflow Rules
+
+## ✅ ALLOWED Operations:
+- Create commits with clear, descriptive messages
+- Create feature branches (use naming convention: `feature/<task-name>`)
+- Push branches to remote
+- Create pull requests using `gh pr create`
+- Add commit messages following conventional commits format when appropriate
+- Stage files for commits
+
+## ❌ PROHIBITED Operations:
+- **NEVER merge pull requests** - Only the user (YibinLong) can merge PRs manually
+- **NEVER force push** (`git push --force` or `git push -f`)
+- **NEVER delete branches** without explicit user permission
+- **NEVER rewrite history** on main/master branch (no hard reset, rebase on main)
+- **NEVER skip hooks** (--no-verify, --no-gpg-sign)
+- **NEVER push directly to main/master** - Always use feature branches
+
+## Git Best Practices:
+1. Always create a feature branch for new work
+2. Use clear commit messages that explain WHAT and WHY
+3. Create PRs with detailed descriptions
+4. Reference task numbers from TASK_LIST.md in commits/PRs
+5. Keep commits atomic and focused on single tasks
+
+## Branch Naming Convention:
+- Feature: `feature/<task-description>`
+- Bugfix: `bugfix/<issue-description>`
+- Hotfix: `hotfix/<critical-fix>`
+- Example: `feature/firebase-setup`, `feature/chat-ui`
+
+## Commit Message Format:
+**ALWAYS use Conventional Commits format:**
+
+```
+<type>: <short summary in lowercase>
+
+<optional longer description>
+
+Related to: Task X.X.X from TASK_LIST.md
+```
+
+### Commit Type Prefixes (REQUIRED):
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `style:` - Code style/formatting (no logic change)
+- `refactor:` - Code refactoring
+- `test:` - Adding or updating tests
+- `chore:` - Maintenance tasks, dependencies, config
+
+### Commit Message Rules:
+1. **Always start with type prefix** (e.g., `feat:`, `fix:`, `docs:`)
+2. **First word after colon should be lowercase** unless it's a proper noun (e.g., Firebase, React, GitHub)
+3. Keep summary concise and descriptive
+4. Use imperative mood (e.g., "add" not "added", "fix" not "fixed")
+
+### Examples:
+- ✅ `feat: add user authentication with Firebase`
+- ✅ `docs: update README with setup instructions`
+- ✅ `fix: resolve chat message timestamp bug`
+- ✅ `refactor: improve Firebase initialization logic`
+- ✅ `chore: add ESLint configuration`
+- ❌ `Add user authentication` (missing type)
+- ❌ `feat: Add user authentication` (should be lowercase "add")
+- ❌ `Added authentication` (wrong tense)

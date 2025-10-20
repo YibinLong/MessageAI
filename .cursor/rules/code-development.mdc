@@ -1,0 +1,23 @@
+---
+description: Code development rules and best practices
+alwaysApply: true
+---
+
+# Code Development Rules
+
+## General:
+- Follow user's beginner-friendly explanation requirement
+- Explain WHY code is written and WHAT it does
+- No automatic .md file creation unless explicitly requested OR if you think it would help a lot in the future for documentation/debugging. If so, ask the user first and explain why it would be helpful/essential.
+- Prioritize code quality and readability over complexity
+
+## File Operations:
+- Always use existing files when possible
+- Ask before creating new files if intent is unclear
+- Clean up temporary files after use
+
+## Project-Specific Context:
+- This is a WhatsApp clone built with React Native
+- User is a beginner in full-stack web apps
+- Follow TASK_LIST.md for implementation order
+- Reference PRD.md for feature specifications
