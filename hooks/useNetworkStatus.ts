@@ -45,6 +45,9 @@ export function useNetworkStatus(): NetworkStatus {
   });
 
   useEffect(() => {
+    // Track previous state to avoid duplicate logs
+    let previousState: string | null = null;
+
     /**
      * Subscribe to network state changes
      * 
@@ -52,16 +55,23 @@ export function useNetworkStatus(): NetworkStatus {
      * WHAT: NetInfo fires callback whenever WiFi/cellular/offline state changes
      */
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      console.log('[NetworkStatus] Connection changed:', {
-        type: state.type,
-        isConnected: state.isConnected,
-        isInternetReachable: state.isInternetReachable,
-      });
-
-      setNetworkStatus({
+      const newStatus = {
         isConnected: state.isConnected ?? false,
         isInternetReachable: state.isInternetReachable ?? false,
-      });
+      };
+
+      // Only log if state actually changed
+      const currentState = JSON.stringify(newStatus);
+      if (currentState !== previousState) {
+        console.log('[NetworkStatus] Connection changed:', {
+          type: state.type,
+          isConnected: state.isConnected,
+          isInternetReachable: state.isInternetReachable,
+        });
+        previousState = currentState;
+      }
+
+      setNetworkStatus(newStatus);
     });
 
     /**
@@ -71,16 +81,19 @@ export function useNetworkStatus(): NetworkStatus {
      * WHAT: Calls NetInfo.fetch() once on mount to get initial status
      */
     NetInfo.fetch().then((state: NetInfoState) => {
+      const initialStatus = {
+        isConnected: state.isConnected ?? false,
+        isInternetReachable: state.isInternetReachable ?? false,
+      };
+
       console.log('[NetworkStatus] Initial state:', {
         type: state.type,
         isConnected: state.isConnected,
         isInternetReachable: state.isInternetReachable,
       });
 
-      setNetworkStatus({
-        isConnected: state.isConnected ?? false,
-        isInternetReachable: state.isInternetReachable ?? false,
-      });
+      previousState = JSON.stringify(initialStatus);
+      setNetworkStatus(initialStatus);
     });
 
     // Cleanup: unsubscribe when component unmounts

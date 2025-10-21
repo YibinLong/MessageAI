@@ -19,6 +19,10 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "participants",
+          "arrayConfig": "CONTAINS"
+        },
+        {
           "fieldPath": "updatedAt",
           "order": "DESCENDING"
         }

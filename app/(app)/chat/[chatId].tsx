@@ -11,7 +11,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../../../stores/authStore';
 import { ConnectionBanner } from '../../../components/ConnectionBanner';
 import { MessageBubble } from '../../../components/MessageBubble';
@@ -21,7 +21,8 @@ import {
   sendMessage, 
   subscribeToMessages, 
   loadMessagesFromCache,
-  retryUnsentMessages 
+  retryUnsentMessages,
+  markChatAsRead
 } from '../../../services/messageService';
 import { getChatById } from '../../../services/chatService';
 import { getUserById } from '../../../services/userService';
@@ -82,6 +83,11 @@ export default function ChatScreen() {
         if (otherUserData) {
           setOtherUser(otherUserData);
         }
+
+        // Mark chat as read (reset unread count for current user)
+        // WHY: User is now viewing this chat, so it's no longer unread
+        await markChatAsRead(chatId, currentUser.id);
+        console.log('[ChatScreen] Chat marked as read');
       } catch (err) {
         console.error('[ChatScreen] Failed to load chat data:', err);
         setError('Failed to load chat');
@@ -122,13 +128,19 @@ export default function ChatScreen() {
    * WHAT: Sets up Firestore listener, updates state when new messages arrive
    */
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !currentUser) return;
 
     console.log('[ChatScreen] Setting up real-time message listener');
 
     const unsubscribe = subscribeToMessages(chatId, (newMessages) => {
       console.log('[ChatScreen] Received', newMessages.length, 'messages from Firestore');
       setMessages(newMessages);
+      
+      // Mark chat as read since user is actively viewing this chat
+      // WHY: Any messages that arrive while user is viewing should be marked as read
+      markChatAsRead(chatId, currentUser.id).catch((error) => {
+        console.warn('[ChatScreen] Failed to mark chat as read:', error);
+      });
     });
 
     // Cleanup listener on unmount
@@ -136,7 +148,7 @@ export default function ChatScreen() {
       console.log('[ChatScreen] Cleaning up message listener');
       unsubscribe();
     };
-  }, [chatId]);
+  }, [chatId, currentUser]);
 
   /**
    * Retry unsent messages when network reconnects
@@ -154,6 +166,23 @@ export default function ChatScreen() {
       });
     }
   }, [isConnected, chatId]);
+
+  /**
+   * Mark chat as read when screen is focused
+   * 
+   * WHY: When user returns to this chat screen, mark any new messages as read
+   * WHAT: Calls markChatAsRead whenever screen gains focus
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser && chatId) {
+        console.log('[ChatScreen] Screen focused, marking chat as read');
+        markChatAsRead(chatId, currentUser.id).catch((error) => {
+          console.warn('[ChatScreen] Failed to mark chat as read on focus:', error);
+        });
+      }
+    }, [chatId, currentUser])
+  );
 
   /**
    * Handle sending a new message
@@ -200,6 +229,21 @@ export default function ChatScreen() {
    * WHAT: Returns message ID
    */
   const keyExtractor = useCallback((item: Message) => item.id, []);
+
+  /**
+   * Render empty state when no messages exist
+   *
+   * WHY: FlatList is inverted, so we need to counter-flip the empty state
+   * WHAT: Wraps empty state in a container that re-inverts the view
+   */
+  const renderEmptyState = useCallback(() => (
+    <View style={styles.emptyWrapper}>
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No messages yet</Text>
+        <Text style={styles.emptySubtext}>Send a message to start the conversation</Text>
+      </View>
+    </View>
+  ), []);
 
   // Loading state
   if (loading) {
@@ -248,12 +292,7 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubtext}>Send a message to start the conversation</Text>
-            </View>
-          }
+          ListEmptyComponent={renderEmptyState}
         />
 
         {/* Message input */}
@@ -291,22 +330,29 @@ const styles = StyleSheet.create({
   messageList: {
     paddingVertical: 8,
   },
+  emptyWrapper: {
+    transform: [{ scaleY: -1 }],
+    width: '100%',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 100,
-    transform: [{ scaleY: -1 }], // Flip back (since FlatList is inverted)
   },
   emptyText: {
     fontSize: 18,
     color: '#666',
     fontWeight: '600',
+    writingDirection: 'ltr', // Force left-to-right text direction
+    textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
     color: '#999',
     marginTop: 8,
+    writingDirection: 'ltr', // Force left-to-right text direction
+    textAlign: 'center',
   },
 });
 
