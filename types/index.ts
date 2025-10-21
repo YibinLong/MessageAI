@@ -37,6 +37,8 @@ export interface Chat {
   updatedAt: Timestamp;          // Last message timestamp (for sorting)
   createdBy: string;             // User who created the chat
   createdAt: Timestamp;
+  unreadCount?: number;          // Number of unread messages for current user (client-side only)
+  unreadCounts?: {[userId: string]: number}; // Unread counts per user (Firestore only)
 }
 
 /**
@@ -85,6 +87,7 @@ export interface SQLiteChat {
   lastMessage?: string;          // JSON stringified object
   updatedAt: number;             // Unix timestamp
   createdAt: number;
+  unreadCount?: number;          // Number of unread messages for current user
 }
 
 /**
