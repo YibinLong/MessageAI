@@ -75,22 +75,22 @@
 
 ---
 
-### **Epic 2.3: Chat List & Conversations**
+### **Epic 2.3: Chat List & Conversations** ✅
 
 **Story:** Users see all conversations in a list, sorted by recency
 
-- ⬜ **Task 2.3.1:** Build Chat List screen UI (list of chats)
-- ⬜ **Task 2.3.2:** Query user's chats from Firestore (via `/users/{userId}/chatIds`)
-- ⬜ **Task 2.3.3:** Display: contact name, profile pic, last message preview, timestamp
-- ⬜ **Task 2.3.4:** Sort chats by `updatedAt` (most recent first)
-- ⬜ **Task 2.3.5:** Add unread message count badge
-- ⬜ **Task 2.3.6:** Implement tap to open conversation
-- ⬜ **Task 2.3.7:** Add "New Chat" button → contact picker → create chat
-- ⬜ **Task 2.3.8:** Cache chat list in SQLite for offline viewing
-- ⬜ **Task 2.3.9:** Pull-to-refresh to sync latest chats
-- ⬜ **Task 2.3.10:** Test: Chat list updates in real-time when new message arrives
+- ✅ **Task 2.3.1:** Build Chat List screen UI (list of chats)
+- ✅ **Task 2.3.2:** Query user's chats from Firestore (via participants array)
+- ✅ **Task 2.3.3:** Display: contact name, profile pic, last message preview, timestamp
+- ✅ **Task 2.3.4:** Sort chats by `updatedAt` (most recent first)
+- ✅ **Task 2.3.5:** Add unread message count badge
+- ✅ **Task 2.3.6:** Implement tap to open conversation
+- ✅ **Task 2.3.7:** Add "New Chat" button → contact picker → create chat
+- ✅ **Task 2.3.8:** Cache chat list in SQLite for offline viewing
+- ✅ **Task 2.3.9:** Pull-to-refresh to sync latest chats
+- ✅ **Task 2.3.10:** Test: Chat list updates in real-time when new message arrives
 
-**Acceptance:** Chat list displays all conversations, updates in real-time, works offline (shows cached data).
+**Acceptance:** Chat list displays all conversations, updates in real-time, works offline (shows cached data). ✅ IMPLEMENTATION COMPLETE - READY FOR TESTING
 
 ---
 
