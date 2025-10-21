@@ -9,15 +9,18 @@
  */
 
 import {
+  collection,
   doc,
   setDoc,
   getDoc,
+  getDocs,
   updateDoc,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { User } from '../types';
+import { User, SQLiteUser } from '../types';
+import { cacheUser } from './sqlite';
 
 /**
  * Create a new user document in Firestore
@@ -166,6 +169,57 @@ export async function updateUserPresence(userId: string, online: boolean): Promi
     console.log('[UserService] User presence updated successfully');
   } catch (error) {
     console.error('[UserService] Failed to update user presence:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all users from Firestore
+ * 
+ * WHY: Contact picker needs to show all available users for starting new chats
+ * WHAT: Fetches all user documents from Firestore and caches them in SQLite
+ * 
+ * @returns Promise with array of all users
+ */
+export async function getAllUsers(): Promise<User[]> {
+  try {
+    console.log('[UserService] Fetching all users');
+    
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    
+    const users: User[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        email: data.email,
+        phone: data.phone,
+        displayName: data.displayName,
+        photoURL: data.photoURL,
+        bio: data.bio,
+        createdAt: data.createdAt as Timestamp,
+        lastSeen: data.lastSeen as Timestamp,
+        online: data.online,
+      } as User;
+    });
+    
+    console.log(`[UserService] Fetched ${users.length} users`);
+    
+    // Cache all users in SQLite for offline access
+    for (const user of users) {
+      const sqliteUser: SQLiteUser = {
+        id: user.id,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        lastSeen: user.lastSeen instanceof Timestamp ? user.lastSeen.toMillis() : Date.now(),
+        online: user.online ? 1 : 0,
+      };
+      await cacheUser(sqliteUser);
+    }
+    
+    return users;
+  } catch (error) {
+    console.error('[UserService] Failed to fetch all users:', error);
     throw error;
   }
 }

@@ -17,11 +17,14 @@ import {
   updateDoc,
   query,
   where,
+  orderBy,
+  onSnapshot,
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  increment
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { upsertChat, getDatabase } from './sqlite';
+import { upsertChat, getAllChats as getSQLiteChats } from './sqlite';
 import { Chat, SQLiteChat } from '../types';
 
 /**
@@ -148,12 +151,14 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 }
 
 /**
- * Update chat's last message
+ * Update chat's last message and increment unread counts
  * 
  * WHY: Chat list shows preview of last message. We update this every time
  * a new message is sent so the chat list stays current.
  * 
- * WHAT: Updates lastMessage and updatedAt fields in Firestore and SQLite
+ * WHAT: 
+ * - Updates lastMessage and updatedAt fields in Firestore
+ * - Increments unread count for all participants except the sender
  * 
  * @param chatId - Chat ID to update
  * @param lastMessageText - Text of the last message
@@ -169,20 +174,38 @@ export async function updateChatLastMessage(
     
     const chatRef = doc(db, 'chats', chatId);
     
-    // Update in Firestore
-    await updateDoc(chatRef, {
+    // Get chat to find all participants
+    const chatSnap = await getDoc(chatRef);
+    if (!chatSnap.exists()) {
+      console.error('[ChatService] Chat not found:', chatId);
+      return;
+    }
+    
+    const chatData = chatSnap.data();
+    const participants = chatData.participants || [];
+    
+    // Build update object
+    const updateData: any = {
       lastMessage: {
         text: lastMessageText,
         senderId,
         timestamp: serverTimestamp(),
       },
       updatedAt: serverTimestamp(),
+    };
+    
+    // Increment unread count for all participants EXCEPT the sender
+    // WHY: Sender has read their own message, others haven't
+    participants.forEach((participantId: string) => {
+      if (participantId !== senderId) {
+        updateData[`unreadCounts.${participantId}`] = increment(1);
+      }
     });
     
-    console.log('[ChatService] Last message updated successfully');
+    // Update in Firestore
+    await updateDoc(chatRef, updateData);
     
-    // Update in SQLite (will be implemented when we add chat list in Epic 2.3)
-    // For now, we just update Firestore
+    console.log('[ChatService] Last message and unread counts updated successfully');
   } catch (error) {
     console.error('[ChatService] Failed to update last message:', error);
     throw error;
@@ -209,6 +232,7 @@ async function cacheChatInSQLite(chat: Chat): Promise<void> {
       lastMessage: chat.lastMessage ? JSON.stringify(chat.lastMessage) : undefined,
       updatedAt: chat.updatedAt instanceof Timestamp ? chat.updatedAt.toMillis() : Date.now(),
       createdAt: chat.createdAt instanceof Timestamp ? chat.createdAt.toMillis() : Date.now(),
+      unreadCount: chat.unreadCount || 0,
     };
     
     await upsertChat(sqliteChat);
@@ -255,6 +279,131 @@ export async function findUserByEmail(email: string): Promise<string | null> {
     console.error('[ChatService] Failed to find user by email:', error);
     throw error;
   }
+}
+
+/**
+ * Get all chats for a user from Firestore
+ * 
+ * WHY: Chat list screen needs to display all conversations for the current user
+ * WHAT: Queries Firestore for chats where user is a participant, ordered by most recent
+ * 
+ * @param userId - Current user's ID
+ * @returns Array of chats, sorted by updatedAt (most recent first)
+ */
+export async function getUserChats(userId: string): Promise<Chat[]> {
+  try {
+    console.log('[ChatService] Getting chats for user:', userId);
+    
+    const chatsRef = collection(db, 'chats');
+    const q = query(
+      chatsRef,
+      where('participants', 'array-contains', userId),
+      orderBy('updatedAt', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    const chats: Chat[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      // Extract this user's unread count from the unreadCounts map
+      const unreadCounts = data.unreadCounts || {};
+      const unreadCount = unreadCounts[userId] || 0;
+      
+      return {
+        id: doc.id,
+        type: data.type,
+        participants: data.participants,
+        name: data.name,
+        photoURL: data.photoURL,
+        admins: data.admins,
+        lastMessage: data.lastMessage,
+        updatedAt: data.updatedAt as Timestamp,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt as Timestamp,
+        unreadCount, // Current user's unread count only
+        unreadCounts: data.unreadCounts, // Full map for Firestore sync
+      } as Chat;
+    });
+    
+    console.log(`[ChatService] Retrieved ${chats.length} chats`);
+    
+    // Cache all chats in SQLite
+    for (const chat of chats) {
+      await cacheChatInSQLite(chat);
+    }
+    
+    return chats;
+  } catch (error) {
+    console.error('[ChatService] Failed to get user chats:', error);
+    throw error;
+  }
+}
+
+/**
+ * Listen to real-time updates for user's chats
+ * 
+ * WHY: Chat list should update instantly when new messages arrive or chats are created
+ * WHAT: Sets up Firestore onSnapshot listener for chats where user is a participant
+ * 
+ * @param userId - Current user's ID
+ * @param callback - Function called with updated chats array
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenToUserChats(
+  userId: string,
+  callback: (chats: Chat[]) => void
+): () => void {
+  console.log('[ChatService] Setting up real-time listener for user chats:', userId);
+  
+  const chatsRef = collection(db, 'chats');
+  const q = query(
+    chatsRef,
+    where('participants', 'array-contains', userId),
+    orderBy('updatedAt', 'desc')
+  );
+  
+  // Set up real-time listener
+  const unsubscribe = onSnapshot(
+    q,
+    async (snapshot) => {
+      console.log(`[ChatService] Received ${snapshot.docs.length} chats from listener`);
+      
+      const chats: Chat[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        // Extract this user's unread count from the unreadCounts map
+        const unreadCounts = data.unreadCounts || {};
+        const unreadCount = unreadCounts[userId] || 0;
+        
+        return {
+          id: doc.id,
+          type: data.type,
+          participants: data.participants,
+          name: data.name,
+          photoURL: data.photoURL,
+          admins: data.admins,
+          lastMessage: data.lastMessage,
+          updatedAt: data.updatedAt as Timestamp,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt as Timestamp,
+          unreadCount, // Current user's unread count only
+          unreadCounts: data.unreadCounts, // Full map for Firestore sync
+        } as Chat;
+      });
+      
+      // Cache all chats in SQLite
+      for (const chat of chats) {
+        await cacheChatInSQLite(chat);
+      }
+      
+      // Call callback with updated chats
+      callback(chats);
+    },
+    (error) => {
+      console.error('[ChatService] Chat listener error:', error);
+    }
+  );
+  
+  return unsubscribe;
 }
 
 
