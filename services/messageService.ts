@@ -416,4 +416,134 @@ export async function markChatAsRead(chatId: string, userId: string): Promise<vo
   }
 }
 
+/**
+ * Mark messages as delivered
+ * 
+ * WHY: When recipient receives messages, we need to update their status to 'delivered'
+ * so the sender sees double gray checkmarks instead of single checkmark.
+ * 
+ * WHAT:
+ * 1. Filters messages to only those not sent by current user
+ * 2. Updates status from 'sent' to 'delivered' in Firestore
+ * 3. Updates SQLite cache to match
+ * 
+ * @param chatId - Chat ID containing the messages
+ * @param messageIds - Array of message IDs to mark as delivered
+ * @param userId - Current user ID (to avoid marking own messages)
+ */
+export async function markMessagesAsDelivered(
+  chatId: string,
+  messageIds: string[],
+  userId: string
+): Promise<void> {
+  try {
+    console.log('[MessageService] Marking messages as delivered:', { chatId, count: messageIds.length });
+    
+    // Update each message in Firestore
+    for (const messageId of messageIds) {
+      try {
+        const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+        
+        // Get message to check if it's from current user
+        const messageSnap = await getDoc(messageRef);
+        if (!messageSnap.exists()) continue;
+        
+        const messageData = messageSnap.data();
+        
+        // Don't mark own messages as delivered
+        if (messageData.senderId === userId) continue;
+        
+        // Only update if status is currently 'sent'
+        if (messageData.status === 'sent') {
+          await updateDoc(messageRef, {
+            status: 'delivered',
+          });
+          
+          // Update SQLite cache
+          const { updateMessageStatus: updateSQLiteStatus } = await import('./sqlite');
+          await updateSQLiteStatus(messageId, 'delivered');
+          
+          console.log('[MessageService] Message marked as delivered:', messageId);
+        }
+      } catch (error) {
+        console.warn('[MessageService] Failed to mark message as delivered:', messageId, error);
+        // Continue with other messages
+      }
+    }
+  } catch (error) {
+    console.error('[MessageService] Failed to mark messages as delivered:', error);
+    // Don't throw - this is not critical
+  }
+}
+
+/**
+ * Mark messages as read
+ * 
+ * WHY: When user opens a chat, all unread messages should be marked as 'read'
+ * so the sender sees blue double checkmarks.
+ * 
+ * WHAT:
+ * 1. Queries all messages in chat where userId is NOT in readBy array
+ * 2. Updates status to 'read'
+ * 3. Adds userId to readBy array
+ * 4. Updates both Firestore and SQLite
+ * 
+ * @param chatId - Chat ID containing the messages
+ * @param userId - User ID who is reading the messages
+ */
+export async function markMessagesAsRead(
+  chatId: string,
+  userId: string
+): Promise<void> {
+  try {
+    console.log('[MessageService] Marking messages as read:', { chatId, userId });
+    
+    // Query messages in this chat
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(50));
+    const snapshot = await getDocs(q);
+    
+    let updatedCount = 0;
+    
+    // Update each unread message
+    for (const docSnap of snapshot.docs) {
+      try {
+        const data = docSnap.data();
+        const messageId = docSnap.id;
+        
+        // Skip if current user sent this message
+        if (data.senderId === userId) continue;
+        
+        // Skip if user already read this message
+        const readBy = data.readBy || [];
+        if (readBy.includes(userId)) continue;
+        
+        // Add user to readBy array
+        const newReadBy = [...readBy, userId];
+        
+        // Update Firestore
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+          status: 'read',
+          readBy: newReadBy,
+        });
+        
+        // Update SQLite cache
+        const { updateMessageReadBy } = await import('./sqlite');
+        await updateMessageReadBy(messageId, newReadBy);
+        
+        updatedCount++;
+        console.log('[MessageService] Message marked as read:', messageId);
+      } catch (error) {
+        console.warn('[MessageService] Failed to mark message as read:', docSnap.id, error);
+        // Continue with other messages
+      }
+    }
+    
+    console.log('[MessageService] Marked', updatedCount, 'messages as read');
+  } catch (error) {
+    console.error('[MessageService] Failed to mark messages as read:', error);
+    // Don't throw - this is not critical
+  }
+}
+
 
