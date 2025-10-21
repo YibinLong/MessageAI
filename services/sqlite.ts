@@ -20,6 +20,35 @@ import { SQLiteMessage, SQLiteChat, SQLiteUser } from '../types';
 let db: SQLite.SQLiteDatabase | null = null;
 
 /**
+ * Operation queue to prevent concurrent SQLite operations
+ * 
+ * WHY: expo-sqlite has issues with concurrent operations on Android.
+ * Running multiple operations at once can cause NullPointerException.
+ * 
+ * WHAT: Queue that ensures operations run one at a time
+ */
+let operationQueue: Promise<any> = Promise.resolve();
+
+/**
+ * Queue an operation to run sequentially
+ * 
+ * WHY: Prevents concurrent SQLite operations that cause crashes
+ * WHAT: Adds operation to queue, waits for previous operations to finish
+ * 
+ * @param operation - Async function to execute
+ * @returns Promise that resolves with operation result
+ */
+async function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
+  // Chain this operation after the previous one
+  operationQueue = operationQueue.then(
+    () => operation(),
+    () => operation() // Run even if previous operation failed
+  );
+  
+  return operationQueue;
+}
+
+/**
  * Initialize the SQLite database
  * 
  * WHAT: 
@@ -124,6 +153,22 @@ export function getDatabase(): SQLite.SQLiteDatabase {
 }
 
 /**
+ * Get the database instance safely (returns null if not initialized)
+ * 
+ * WHY: Allows graceful degradation when SQLite is unavailable
+ * WHAT: Returns database connection or null without throwing
+ * 
+ * USE THIS for operations that should continue even if SQLite fails
+ */
+export function getDatabaseSafe(): SQLite.SQLiteDatabase | null {
+  if (!db) {
+    console.warn('[SQLite] Database not initialized, operations will be skipped');
+    return null;
+  }
+  return db;
+}
+
+/**
  * Insert a message into SQLite
  * 
  * WHY: Called when sending a message (optimistic UI) or receiving one
@@ -132,31 +177,37 @@ export function getDatabase(): SQLite.SQLiteDatabase {
  * @param message - The message to insert
  */
 export async function insertMessage(message: SQLiteMessage): Promise<void> {
-  const database = getDatabase();
-  
-  try {
-    await database.runAsync(
-      `INSERT OR REPLACE INTO messages 
-       (id, chatId, senderId, text, timestamp, status, readBy, type, mediaURL, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        message.id,
-        message.chatId,
-        message.senderId,
-        message.text,
-        message.timestamp,
-        message.status,
-        message.readBy,
-        message.type,
-        message.mediaURL || null,
-        message.synced,
-      ]
-    );
-    console.log('[SQLite] Message inserted:', message.id);
-  } catch (error) {
-    console.error('[SQLite] Insert message failed:', error);
-    throw error;
-  }
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, skipping message insert');
+      return;
+    }
+    
+    try {
+      await database.runAsync(
+        `INSERT OR REPLACE INTO messages 
+         (id, chatId, senderId, text, timestamp, status, readBy, type, mediaURL, synced)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message.id,
+          message.chatId,
+          message.senderId,
+          message.text,
+          message.timestamp,
+          message.status,
+          message.readBy,
+          message.type,
+          message.mediaURL || null,
+          message.synced,
+        ]
+      );
+      console.log('[SQLite] Message inserted:', message.id);
+    } catch (error) {
+      console.warn('[SQLite] Insert message failed:', error);
+      // Don't throw - graceful degradation
+    }
+  });
 }
 
 /**
@@ -173,23 +224,29 @@ export async function getMessagesByChat(
   chatId: string,
   limit: number = 50
 ): Promise<SQLiteMessage[]> {
-  const database = getDatabase();
-  
-  try {
-    const result = await database.getAllAsync<SQLiteMessage>(
-      `SELECT * FROM messages 
-       WHERE chatId = ? 
-       ORDER BY timestamp DESC 
-       LIMIT ?`,
-      [chatId, limit]
-    );
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, returning empty messages');
+      return [];
+    }
     
-    console.log(`[SQLite] Retrieved ${result.length} messages for chat ${chatId}`);
-    return result;
-  } catch (error) {
-    console.error('[SQLite] Get messages failed:', error);
-    return [];
-  }
+    try {
+      const result = await database.getAllAsync<SQLiteMessage>(
+        `SELECT * FROM messages 
+         WHERE chatId = ? 
+         ORDER BY timestamp DESC 
+         LIMIT ?`,
+        [chatId, limit]
+      );
+      
+      console.log(`[SQLite] Retrieved ${result.length} messages for chat ${chatId}`);
+      return result;
+    } catch (error) {
+      console.warn('[SQLite] Get messages failed:', error);
+      return [];
+    }
+  });
 }
 
 /**
@@ -201,20 +258,26 @@ export async function getMessagesByChat(
  * @returns Array of chats
  */
 export async function getAllChats(): Promise<SQLiteChat[]> {
-  const database = getDatabase();
-  
-  try {
-    const result = await database.getAllAsync<SQLiteChat>(
-      `SELECT * FROM chats 
-       ORDER BY updatedAt DESC`
-    );
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, returning empty chats');
+      return [];
+    }
     
-    console.log(`[SQLite] Retrieved ${result.length} chats`);
-    return result;
-  } catch (error) {
-    console.error('[SQLite] Get chats failed:', error);
-    return [];
-  }
+    try {
+      const result = await database.getAllAsync<SQLiteChat>(
+        `SELECT * FROM chats 
+         ORDER BY updatedAt DESC`
+      );
+      
+      console.log(`[SQLite] Retrieved ${result.length} chats`);
+      return result;
+    } catch (error) {
+      console.warn('[SQLite] Get chats failed:', error);
+      return [];
+    }
+  });
 }
 
 /**
@@ -226,29 +289,35 @@ export async function getAllChats(): Promise<SQLiteChat[]> {
  * @param chat - The chat to save
  */
 export async function upsertChat(chat: SQLiteChat): Promise<void> {
-  const database = getDatabase();
-  
-  try {
-    await database.runAsync(
-      `INSERT OR REPLACE INTO chats 
-       (id, type, participants, name, photoURL, lastMessage, updatedAt, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        chat.id,
-        chat.type,
-        chat.participants,
-        chat.name || null,
-        chat.photoURL || null,
-        chat.lastMessage || null,
-        chat.updatedAt,
-        chat.createdAt,
-      ]
-    );
-    console.log('[SQLite] Chat upserted:', chat.id);
-  } catch (error) {
-    console.error('[SQLite] Upsert chat failed:', error);
-    throw error;
-  }
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, skipping chat upsert');
+      return;
+    }
+    
+    try {
+      await database.runAsync(
+        `INSERT OR REPLACE INTO chats 
+         (id, type, participants, name, photoURL, lastMessage, updatedAt, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          chat.id,
+          chat.type,
+          chat.participants,
+          chat.name || null,
+          chat.photoURL || null,
+          chat.lastMessage || null,
+          chat.updatedAt,
+          chat.createdAt,
+        ]
+      );
+      console.log('[SQLite] Chat upserted:', chat.id);
+    } catch (error) {
+      console.warn('[SQLite] Upsert chat failed:', error);
+      // Don't throw - graceful degradation
+    }
+  });
 }
 
 /**
@@ -260,26 +329,32 @@ export async function upsertChat(chat: SQLiteChat): Promise<void> {
  * @param user - The user to cache
  */
 export async function cacheUser(user: SQLiteUser): Promise<void> {
-  const database = getDatabase();
-  
-  try {
-    await database.runAsync(
-      `INSERT OR REPLACE INTO users 
-       (id, displayName, photoURL, lastSeen, online)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        user.id,
-        user.displayName,
-        user.photoURL || null,
-        user.lastSeen,
-        user.online,
-      ]
-    );
-    console.log('[SQLite] User cached:', user.id);
-  } catch (error) {
-    console.error('[SQLite] Cache user failed:', error);
-    throw error;
-  }
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, skipping user cache');
+      return;
+    }
+    
+    try {
+      await database.runAsync(
+        `INSERT OR REPLACE INTO users 
+         (id, displayName, photoURL, lastSeen, online)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          user.id,
+          user.displayName,
+          user.photoURL || null,
+          user.lastSeen,
+          user.online,
+        ]
+      );
+      console.log('[SQLite] User cached:', user.id);
+    } catch (error) {
+      console.warn('[SQLite] Cache user failed:', error);
+      // Don't throw - graceful degradation
+    }
+  });
 }
 
 /**
@@ -289,18 +364,98 @@ export async function cacheUser(user: SQLiteUser): Promise<void> {
  * @returns The cached user data, or null if not found
  */
 export async function getCachedUser(userId: string): Promise<SQLiteUser | null> {
-  const database = getDatabase();
-  
-  try {
-    const result = await database.getFirstAsync<SQLiteUser>(
-      `SELECT * FROM users WHERE id = ?`,
-      [userId]
-    );
-    return result || null;
-  } catch (error) {
-    console.error('[SQLite] Get cached user failed:', error);
-    return null;
-  }
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, returning null for cached user');
+      return null;
+    }
+    
+    try {
+      const result = await database.getFirstAsync<SQLiteUser>(
+        `SELECT * FROM users WHERE id = ?`,
+        [userId]
+      );
+      return result || null;
+    } catch (error) {
+      console.warn('[SQLite] Get cached user failed:', error);
+      return null;
+    }
+  });
+}
+
+/**
+ * Update message status
+ * 
+ * WHY: As messages progress (sending → sent → delivered → read), we update status
+ * WHAT: Updates status and synced fields for a specific message
+ * 
+ * @param messageId - Message ID to update
+ * @param status - New status value
+ */
+export async function updateMessageStatus(
+  messageId: string,
+  status: 'sending' | 'sent' | 'delivered' | 'read'
+): Promise<void> {
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, skipping status update');
+      return;
+    }
+    
+    try {
+      await database.runAsync(
+        'UPDATE messages SET status = ?, synced = 1 WHERE id = ?',
+        [status, messageId]
+      );
+      console.log('[SQLite] Message status updated:', messageId, '→', status);
+    } catch (error) {
+      console.warn('[SQLite] Failed to update message status:', error);
+      // Don't throw - graceful degradation
+    }
+  });
+}
+
+/**
+ * Get messages with specific status (for offline queue)
+ * 
+ * WHY: When network reconnects, we need to find messages that failed to send
+ * WHAT: Queries messages by status, optionally filtered by chatId
+ * 
+ * @param status - Status to filter by (e.g., 'sending')
+ * @param chatId - Optional: only get messages from this chat
+ * @returns Array of messages with the specified status
+ */
+export async function getMessagesByStatus(
+  status: 'sending' | 'sent' | 'delivered' | 'read',
+  chatId?: string
+): Promise<SQLiteMessage[]> {
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, returning empty messages');
+      return [];
+    }
+    
+    try {
+      const result = chatId
+        ? await database.getAllAsync<SQLiteMessage>(
+            'SELECT * FROM messages WHERE status = ? AND chatId = ?',
+            [status, chatId]
+          )
+        : await database.getAllAsync<SQLiteMessage>(
+            'SELECT * FROM messages WHERE status = ?',
+            [status]
+          );
+      
+      console.log(`[SQLite] Retrieved ${result.length} messages with status ${status}`);
+      return result;
+    } catch (error) {
+      console.warn('[SQLite] Get messages by status failed:', error);
+      return [];
+    }
+  });
 }
 
 /**
@@ -310,18 +465,24 @@ export async function getCachedUser(userId: string): Promise<SQLiteUser | null> 
  * WHAT: Deletes all rows from all tables
  */
 export async function clearDatabase(): Promise<void> {
-  const database = getDatabase();
-  
-  try {
-    await database.execAsync(`
-      DELETE FROM messages;
-      DELETE FROM chats;
-      DELETE FROM users;
-    `);
-    console.log('[SQLite] Database cleared');
-  } catch (error) {
-    console.error('[SQLite] Clear database failed:', error);
-    throw error;
-  }
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, cannot clear');
+      return;
+    }
+    
+    try {
+      await database.execAsync(`
+        DELETE FROM messages;
+        DELETE FROM chats;
+        DELETE FROM users;
+      `);
+      console.log('[SQLite] Database cleared');
+    } catch (error) {
+      console.warn('[SQLite] Clear database failed:', error);
+      // Don't throw - graceful degradation
+    }
+  });
 }
 
