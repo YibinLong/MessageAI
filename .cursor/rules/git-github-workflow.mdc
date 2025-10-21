@@ -30,6 +30,10 @@ alwaysApply: true
    - NEVER push code automatically - user reviews first
    - NEVER merge PRs - user does this manually on GitHub.com
 
+5. **Update PR titles when requested**
+   - PR titles use imperative style (NO conventional commit prefixes)
+   - Format: `<imperative verb> <description> [optional scope]`
+
 ### What AI Does NOT Do:
 - ❌ Create branches (user does this)
 - ❌ Push code (user does this via GitHub Desktop)
@@ -95,4 +99,23 @@ Related to: Task X.X.X from TASK_LIST.md
 - `README.md`
 **Message**: `docs: add Firebase setup instructions`
 
-**Recommendation**: These can all go in one PR called 'Firebase Authentication Setup'"
+**Recommendation**: These can all go in one PR called 'Add Firebase authentication setup'"
+
+## PR Title Format:
+**Use imperative style (NOT conventional commit format):**
+
+PR titles should read like changelog entries for release notes.
+
+### Format:
+```
+<imperative verb> <description> [optional scope or reference]
+```
+
+### Examples:
+- ✅ `Add user profile editing flow`
+- ✅ `Fix crash when user logs out`
+- ✅ `Implement authentication and user profiles (Epic 2.1)`
+- ✅ `Chat: Add message retry on network failure`
+- ✅ `[PROJ-421] Add offline message sync`
+- ❌ `feat: add user authentication` (NO conventional commit prefix)
+- ❌ `Added user authentication` (wrong tense - use imperative)
