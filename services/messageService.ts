@@ -21,7 +21,9 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
-  getDocs
+  getDocs,
+  getDoc,
+  increment
 } from 'firebase/firestore';
 import uuid from 'react-native-uuid';
 import { db } from './firebase';
@@ -368,6 +370,49 @@ export async function loadMessagesFromCache(
   } catch (error) {
     console.error('[MessageService] Failed to load messages from cache:', error);
     return [];
+  }
+}
+
+/**
+ * Mark a chat as read for a specific user
+ * 
+ * WHY: When a user opens a chat, we need to reset their unread count to 0.
+ * This is tracked per-user using a map in Firestore.
+ * 
+ * WHAT: 
+ * 1. Updates Firestore chat document to set unreadCounts[userId] = 0
+ * 2. Updates SQLite cache to set unreadCount = 0 for this user
+ * 
+ * @param chatId - Chat ID to mark as read
+ * @param userId - User ID who is marking the chat as read
+ */
+export async function markChatAsRead(chatId: string, userId: string): Promise<void> {
+  try {
+    console.log('[MessageService] Marking chat as read:', { chatId, userId });
+    
+    // Update Firestore: Set this user's unread count to 0
+    // We use a map structure: { unreadCounts: { userId1: 0, userId2: 5 } }
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+      [`unreadCounts.${userId}`]: 0,
+    });
+    
+    console.log('[MessageService] Chat marked as read in Firestore');
+    
+    // Update SQLite cache
+    // Note: SQLite stores only the current user's unread count
+    const { upsertChat, getAllChats } = await import('./sqlite');
+    const sqliteChats = await getAllChats();
+    const chat = sqliteChats.find(c => c.id === chatId);
+    
+    if (chat) {
+      chat.unreadCount = 0;
+      await upsertChat(chat);
+      console.log('[MessageService] Chat marked as read in SQLite');
+    }
+  } catch (error) {
+    console.error('[MessageService] Failed to mark chat as read:', error);
+    // Don't throw - this is not critical, chat will still work
   }
 }
 
