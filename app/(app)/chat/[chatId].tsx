@@ -22,7 +22,9 @@ import {
   subscribeToMessages, 
   loadMessagesFromCache,
   retryUnsentMessages,
-  markChatAsRead
+  markChatAsRead,
+  markMessagesAsDelivered,
+  markMessagesAsRead
 } from '../../../services/messageService';
 import { getChatById } from '../../../services/chatService';
 import { getUserById } from '../../../services/userService';
@@ -136,8 +138,20 @@ export default function ChatScreen() {
       console.log('[ChatScreen] Received', newMessages.length, 'messages from Firestore');
       setMessages(newMessages);
       
-      // Mark chat as read since user is actively viewing this chat
+      // Mark incoming messages as delivered
+      // WHY: When recipient receives messages, sender should see "delivered" status
+      const messageIds = newMessages.map(msg => msg.id);
+      markMessagesAsDelivered(chatId, messageIds, currentUser.id).catch((error) => {
+        console.warn('[ChatScreen] Failed to mark messages as delivered:', error);
+      });
+      
+      // Mark messages as read since user is actively viewing this chat
       // WHY: Any messages that arrive while user is viewing should be marked as read
+      markMessagesAsRead(chatId, currentUser.id).catch((error) => {
+        console.warn('[ChatScreen] Failed to mark messages as read:', error);
+      });
+      
+      // Mark chat as read (reset unread count)
       markChatAsRead(chatId, currentUser.id).catch((error) => {
         console.warn('[ChatScreen] Failed to mark chat as read:', error);
       });
@@ -171,12 +185,19 @@ export default function ChatScreen() {
    * Mark chat as read when screen is focused
    * 
    * WHY: When user returns to this chat screen, mark any new messages as read
-   * WHAT: Calls markChatAsRead whenever screen gains focus
+   * WHAT: Calls markMessagesAsRead and markChatAsRead whenever screen gains focus
    */
   useFocusEffect(
     useCallback(() => {
       if (currentUser && chatId) {
-        console.log('[ChatScreen] Screen focused, marking chat as read');
+        console.log('[ChatScreen] Screen focused, marking messages and chat as read');
+        
+        // Mark individual messages as read
+        markMessagesAsRead(chatId, currentUser.id).catch((error) => {
+          console.warn('[ChatScreen] Failed to mark messages as read on focus:', error);
+        });
+        
+        // Mark chat as read (reset unread count)
         markChatAsRead(chatId, currentUser.id).catch((error) => {
           console.warn('[ChatScreen] Failed to mark chat as read on focus:', error);
         });
