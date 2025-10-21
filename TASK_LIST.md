@@ -27,20 +27,20 @@
 
 ## **PHASE 2: MVP - CORE MESSAGING**
 
-### **Epic 2.1: Authentication & User Profiles**
+### **Epic 2.1: Authentication & User Profiles** ✅
 
 **Story:** Users can sign up, sign in, and create profiles
 
-- ⬜ **Task 2.1.1:** Create auth screens (SignIn, SignUp, Profile Setup)
-- ⬜ **Task 2.1.2:** Implement Firebase email/password auth
-- ⬜ **Task 2.1.3:** Create Firestore `/users/{userId}` document on signup
-- ⬜ **Task 2.1.4:** Build profile setup screen (display name, profile picture upload)
-- ⬜ **Task 2.1.5:** Implement image picker + upload to Firebase Storage
-- ⬜ **Task 2.1.6:** Create auth context/store (Zustand) for user state
-- ⬜ **Task 2.1.7:** Add auth persistence (stay logged in)
+- ✅ **Task 2.1.1:** Create auth screens (SignIn, SignUp, Profile Setup)
+- ✅ **Task 2.1.2:** Implement Firebase email/password auth
+- ✅ **Task 2.1.3:** Create Firestore `/users/{userId}` document on signup
+- ✅ **Task 2.1.4:** Build profile setup screen (display name, profile picture upload)
+- ✅ **Task 2.1.5:** Implement image picker + upload to Firebase Storage
+- ✅ **Task 2.1.6:** Create auth context/store (Zustand) for user state
+- ✅ **Task 2.1.7:** Add auth persistence (stay logged in)
 - ⬜ **Task 2.1.8:** Test: Sign up → upload photo → sign out → sign in → profile persists
 
-**Acceptance:** User can create account, upload profile pic, stay logged in across app restarts.
+**Acceptance:** User can create account, upload profile pic, stay logged in across app restarts. ✅ IMPLEMENTATION COMPLETE - READY FOR TESTING
 
 ---
 
