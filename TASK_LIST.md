@@ -66,6 +66,7 @@
   - Handle network status changes
 - ⬜ **Task 2.2.8:** Style message bubbles (WhatsApp Material Design 3 style)
 - ⬜ **Task 2.2.9:** Test: Send message online → works. Send offline → queues → reconnect → sends.
+  - **NOTE:** Temporary "Create Test Chat" button added to index.tsx for testing Epic 2.2. **REMOVE in Epic 2.10** when implementing proper contact discovery.
 - ⬜ **Task 2.2.10:** Add connection status indicator UI (show online/offline/reconnecting banner at top of chat screen)
 - ⬜ **Task 2.2.11:** Add "pending" badge/icon on messages with status 'sending' (offline queue indicator)
 - ⬜ **Task 2.2.12:** Optimize sync performance to achieve <1 second sync time after reconnection
