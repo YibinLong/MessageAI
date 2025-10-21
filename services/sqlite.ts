@@ -110,10 +110,21 @@ export async function initDatabase(): Promise<void> {
         photoURL TEXT,
         lastMessage TEXT,
         updatedAt INTEGER NOT NULL,
-        createdAt INTEGER NOT NULL
+        createdAt INTEGER NOT NULL,
+        unreadCount INTEGER DEFAULT 0
       );
     `);
     console.log('[SQLite] Chats table created');
+    
+    // Add unreadCount column if it doesn't exist (migration for existing databases)
+    // WHY: For users who already have the app, we need to add this column
+    try {
+      await db.execAsync(`ALTER TABLE chats ADD COLUMN unreadCount INTEGER DEFAULT 0;`);
+      console.log('[SQLite] Added unreadCount column to chats table');
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log('[SQLite] unreadCount column already exists (expected for existing DBs)');
+    }
     
     // Create index for sorting chats by most recent
     // WHY: Chat list shows most recent conversations first
@@ -303,8 +314,8 @@ export async function upsertChat(chat: SQLiteChat): Promise<void> {
     try {
       await database.runAsync(
         `INSERT OR REPLACE INTO chats 
-         (id, type, participants, name, photoURL, lastMessage, updatedAt, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, type, participants, name, photoURL, lastMessage, updatedAt, createdAt, unreadCount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           chat.id,
           chat.type,
@@ -314,6 +325,7 @@ export async function upsertChat(chat: SQLiteChat): Promise<void> {
           chat.lastMessage || null,
           chat.updatedAt,
           chat.createdAt,
+          chat.unreadCount || 0,
         ]
       );
       console.log('[SQLite] Chat upserted:', chat.id);
