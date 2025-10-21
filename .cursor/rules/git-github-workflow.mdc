@@ -24,11 +24,18 @@ alwaysApply: true
    - Generate proper commit messages for each logical group of changes
    - Follow format: `<type>: <lowercase description>`
 
+4. **Create PRs ONLY when explicitly requested**
+   - User must explicitly ask "create a PR" or "make a pull request"
+   - Use GitHub CLI (`gh pr create`) to create draft PRs
+   - NEVER push code automatically - user reviews first
+   - NEVER merge PRs - user does this manually on GitHub.com
+   - Always create as draft for user review
+
 ### What AI Does NOT Do:
 - ❌ Create branches (user does this)
 - ❌ Push code (user does this via GitHub Desktop)
-- ❌ Create PRs (user does this)
-- ❌ Merge PRs (user does this)
+- ❌ Create PRs automatically (ONLY when explicitly requested)
+- ❌ Merge PRs (user ALWAYS does this manually)
 - ❌ Switch branches (user does this)
 
 ## Commit Message Format:
