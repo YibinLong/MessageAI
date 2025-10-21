@@ -475,6 +475,39 @@ export async function getMessagesByStatus(
 }
 
 /**
+ * Update message readBy array
+ * 
+ * WHY: When messages are read, we need to update who has read them
+ * WHAT: Updates the readBy field with new array of user IDs
+ * 
+ * @param messageId - Message ID to update
+ * @param readBy - Array of user IDs who have read the message
+ */
+export async function updateMessageReadBy(
+  messageId: string,
+  readBy: string[]
+): Promise<void> {
+  return queueOperation(async () => {
+    const database = getDatabaseSafe();
+    if (!database) {
+      console.warn('[SQLite] Database unavailable, skipping readBy update');
+      return;
+    }
+    
+    try {
+      await database.runAsync(
+        'UPDATE messages SET readBy = ?, status = ?, synced = 1 WHERE id = ?',
+        [JSON.stringify(readBy), 'read', messageId]
+      );
+      console.log('[SQLite] Message readBy updated:', messageId);
+    } catch (error) {
+      console.warn('[SQLite] Failed to update message readBy:', error);
+      // Don't throw - graceful degradation
+    }
+  });
+}
+
+/**
  * Clear all data from the database
  * 
  * WHY: Useful for logout or testing
