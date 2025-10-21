@@ -1,0 +1,110 @@
+/**
+ * Firestore Security Rules
+ * 
+ * These rules control who can read/write data in Firestore.
+ * 
+ * WHY: Security rules prevent unauthorized access to user data
+ * WHAT: Define permissions for each collection
+ */
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // TEMPORARY: Allow all access for Phase 1 testing
+    // TODO: Re-enable authentication checks when implementing Phase 2 (Auth)
+    // This is ONLY for development/testing - DO NOT use in production!
+    
+    /**
+     * Helper function: Check if user is authenticated
+     * 
+     * WHY: Most operations require user to be logged in
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    /**
+     * Helper function: Check if user owns the resource
+     * 
+     * WHY: Users should only modify their own data
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    /**
+     * Users collection: /users/{userId}
+     * 
+     * WHAT: Stores user profiles
+     * RULES:
+     * - TEMP: Allow all for testing (remove this when auth is implemented)
+     */
+    match /users/{userId} {
+      allow read, write: if true;  // TEMP for testing
+      
+      // Device tokens subcollection for push notifications
+      match /tokens/{tokenId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // FAQs subcollection (for AI auto-responder)
+      match /faqs/{faqId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // Message embeddings (for AI RAG)
+      match /messageEmbeddings/{embeddingId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // Agent logs
+      match /agentLogs/{logId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    /**
+     * Chats collection: /chats/{chatId}
+     * 
+     * WHAT: Stores chat metadata
+     * RULES:
+     * - TEMP: Allow all for testing
+     */
+    match /chats/{chatId} {
+      allow read, write: if true;  // TEMP for testing
+      
+      /**
+       * Messages subcollection: /chats/{chatId}/messages/{messageId}
+       * 
+       * WHAT: Stores individual messages
+       * RULES: TEMP - Allow all for testing
+       */
+      match /messages/{messageId} {
+        allow read, write: if true;  // TEMP for testing
+      }
+      
+      /**
+       * Typing indicators: /chats/{chatId}/typing/{userId}
+       * 
+       * WHAT: Real-time typing status
+       * RULES: TEMP - Allow all for testing
+       */
+      match /typing/{userId} {
+        allow read, write: if true;  // TEMP for testing
+      }
+    }
+    
+    /**
+     * Test collection (for testing Firebase connection)
+     * 
+     * WHAT: Temporary collection for testing
+     * RULES: TEMP - Allow all for testing (will secure when auth is implemented)
+     */
+    match /test/{document=**} {
+      allow read, write: if true;  // TEMP for testing
+    }
+  }
+}
+

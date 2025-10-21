@@ -1,0 +1,57 @@
+/**
+ * Firebase Storage Security Rules
+ * 
+ * These rules control who can upload/download files in Firebase Storage.
+ * 
+ * WHY: Prevent unauthorized access to uploaded images
+ * WHAT: Users can only access their own uploaded files
+ */
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    /**
+     * Media files: /media/{userId}/{fileName}
+     * 
+     * WHAT: User-uploaded images and media
+     * RULES:
+     * - Anyone authenticated can read (to view images in chats)
+     * - Only the owner can write/delete their files
+     */
+    match /media/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    /**
+     * Profile pictures: /profiles/{userId}/{fileName}
+     * 
+     * WHAT: User profile photos
+     * RULES:
+     * - Anyone can read profile pictures
+     * - Only the owner can upload/update their profile picture
+     */
+    match /profiles/{userId}/{fileName} {
+      allow read: if true;  // Public read for profile pictures
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    /**
+     * Group photos: /groups/{chatId}/{fileName}
+     * 
+     * WHAT: Group chat photos
+     * RULES:
+     * - Anyone authenticated can read
+     * - Anyone authenticated can write (group admins will be checked in Cloud Function)
+     */
+    match /groups/{chatId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
+
