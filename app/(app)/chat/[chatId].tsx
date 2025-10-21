@@ -134,19 +134,23 @@ export default function ChatScreen() {
 
     console.log('[ChatScreen] Setting up real-time message listener');
 
-    const unsubscribe = subscribeToMessages(chatId, (newMessages) => {
+    const unsubscribe = subscribeToMessages(chatId, async (newMessages) => {
       console.log('[ChatScreen] Received', newMessages.length, 'messages from Firestore');
       setMessages(newMessages);
       
-      // Mark incoming messages as delivered
+      // Mark incoming messages as delivered FIRST
       // WHY: When recipient receives messages, sender should see "delivered" status
+      // IMPORTANT: Must complete before marking as read to ensure proper status progression
       const messageIds = newMessages.map(msg => msg.id);
-      markMessagesAsDelivered(chatId, messageIds, currentUser.id).catch((error) => {
+      try {
+        await markMessagesAsDelivered(chatId, messageIds, currentUser.id);
+      } catch (error) {
         console.warn('[ChatScreen] Failed to mark messages as delivered:', error);
-      });
+      }
       
-      // Mark messages as read since user is actively viewing this chat
+      // Mark messages as read AFTER delivered
       // WHY: Any messages that arrive while user is viewing should be marked as read
+      // This ensures status progression: sent → delivered → read
       markMessagesAsRead(chatId, currentUser.id).catch((error) => {
         console.warn('[ChatScreen] Failed to mark messages as read:', error);
       });
