@@ -16,7 +16,9 @@ import { useAuthStore } from '../../../stores/authStore';
 import { ConnectionBanner } from '../../../components/ConnectionBanner';
 import { MessageBubble } from '../../../components/MessageBubble';
 import { MessageInput } from '../../../components/MessageInput';
+import { TypingIndicator } from '../../../components/TypingIndicator';
 import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
+import { subscribeToUserTyping } from '../../../services/typingService';
 import { 
   sendMessage, 
   subscribeToMessages, 
@@ -52,6 +54,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
 
   /**
    * Load chat metadata and other user's profile
@@ -210,6 +213,33 @@ export default function ChatScreen() {
   );
 
   /**
+   * Subscribe to typing indicator
+   * 
+   * WHY: Users need to see when the other person is typing
+   * WHAT: Sets up listener for other user's typing status
+   */
+  useEffect(() => {
+    if (!chatId || !otherUser || !currentUser) return;
+
+    console.log('[ChatScreen] Subscribing to typing indicator for:', otherUser.id);
+
+    const unsubscribe = subscribeToUserTyping(
+      chatId,
+      otherUser.id,
+      (isTyping) => {
+        console.log('[ChatScreen] Other user typing status:', isTyping);
+        setIsOtherUserTyping(isTyping);
+      }
+    );
+
+    // Cleanup listener on unmount
+    return () => {
+      console.log('[ChatScreen] Cleaning up typing listener');
+      unsubscribe();
+    };
+  }, [chatId, otherUser, currentUser]);
+
+  /**
    * Handle sending a new message
    * 
    * WHY: User taps send button, we need to save and upload the message
@@ -320,8 +350,15 @@ export default function ChatScreen() {
           ListEmptyComponent={renderEmptyState}
         />
 
+        {/* Typing indicator */}
+        {isOtherUserTyping && <TypingIndicator userName={otherUser?.displayName} />}
+
         {/* Message input */}
-        <MessageInput onSend={handleSendMessage} />
+        <MessageInput 
+          onSend={handleSendMessage} 
+          chatId={chatId as string}
+          userId={currentUser?.id || ''}
+        />
       </KeyboardAvoidingView>
     </>
   );
