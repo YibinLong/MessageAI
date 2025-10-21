@@ -114,18 +114,18 @@
 
 ---
 
-### **Epic 2.5: Typing Indicators**
+### **Epic 2.5: Typing Indicators** ✅
 
 **Story:** Users see when others are typing
 
-- ⬜ **Task 2.5.1:** Create Firestore collection `/chats/{chatId}/typing/{userId}`
-- ⬜ **Task 2.5.2:** Update typing status on `onChangeText` (debounced 500ms)
-- ⬜ **Task 2.5.3:** Clear typing status after 3s of inactivity or on send
-- ⬜ **Task 2.5.4:** Listen to typing collection → display "User is typing..." banner
-- ⬜ **Task 2.5.5:** Style typing indicator (WhatsApp style: bottom of chat)
+- ✅ **Task 2.5.1:** Create Firestore collection `/chats/{chatId}/typing/{userId}`
+- ✅ **Task 2.5.2:** Update typing status on `onChangeText` (debounced 500ms)
+- ✅ **Task 2.5.3:** Clear typing status after 3s of inactivity or on send
+- ✅ **Task 2.5.4:** Listen to typing collection → display "User is typing..." banner
+- ✅ **Task 2.5.5:** Style typing indicator (WhatsApp style: bottom of chat)
 - ⬜ **Task 2.5.6:** Test: Type in chat → other device shows indicator → stops after 3s
 
-**Acceptance:** Typing indicators appear and disappear correctly across devices.
+**Acceptance:** Typing indicators appear and disappear correctly across devices. ✅ IMPLEMENTATION COMPLETE - READY FOR TESTING
 
 ---
 
