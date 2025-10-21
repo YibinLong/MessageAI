@@ -353,12 +353,14 @@ export default function ChatScreen() {
         {/* Typing indicator */}
         {isOtherUserTyping && <TypingIndicator userName={otherUser?.displayName} />}
 
-        {/* Message input */}
-        <MessageInput 
-          onSend={handleSendMessage} 
-          chatId={chatId as string}
-          userId={currentUser?.id || ''}
-        />
+        {/* Message input - only render when we have valid data */}
+        {chatId && currentUser?.id && (
+          <MessageInput 
+            onSend={handleSendMessage} 
+            chatId={chatId as string}
+            userId={currentUser.id}
+          />
+        )}
       </KeyboardAvoidingView>
     </>
   );
