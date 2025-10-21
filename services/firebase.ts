@@ -9,11 +9,16 @@
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-// Auth import delayed - will initialize when needed in Phase 2
-// import { getAuth, Auth } from 'firebase/auth';
+import { 
+  getAuth, 
+  initializeAuth, 
+  getReactNativePersistence, 
+  Auth 
+} from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getDatabase, Database } from 'firebase/database';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 /**
@@ -53,17 +58,46 @@ if (getApps().length === 0) {
  * 
  * WHY: We create these once and export them so the entire app uses the same instances
  * WHAT:
- * - auth: For user authentication (sign up, sign in, sign out) - DISABLED for Phase 1
+ * - auth: For user authentication (sign up, sign in, sign out)
  * - db: Firestore database for storing messages, chats, user profiles
  * - storage: For uploading/downloading images and media files
  * - realtimeDb: For real-time presence (online/offline status)
+ * 
+ * NOTE: We initialize these AFTER the app is created to ensure proper order
  */
-// Auth disabled for Phase 1 testing - will enable in Phase 2 (Authentication epic)
-// export const auth: Auth = getAuth(app);
-export const auth: any = null;  // Placeholder - will initialize in Phase 2
 export const db: Firestore = getFirestore(app);
 export const storage: FirebaseStorage = getStorage(app);
 export const realtimeDb: Database = getDatabase(app);
+
+/**
+ * Initialize Firebase Auth with React Native AsyncStorage persistence
+ * 
+ * WHY: In React Native, getAuth() DOES NOT WORK. We MUST use initializeAuth()
+ * with explicit AsyncStorage persistence. This is not optional - it's required.
+ * 
+ * WHAT: Use initializeAuth() with ReactNativeAsyncStorage for persistence.
+ * Add try-catch to handle hot reload edge case where auth is already initialized.
+ */
+let authInstance: Auth;
+try {
+  // Initialize Auth with AsyncStorage persistence
+  // This properly registers the auth component in React Native
+  authInstance = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+  });
+  console.log('[Firebase] Auth initialized with AsyncStorage persistence');
+} catch (error: any) {
+  // If already initialized (hot reload), use getAuth
+  if (error.code === 'auth/already-initialized') {
+    authInstance = getAuth(app);
+    console.log('[Firebase] Using existing Auth instance (hot reload)');
+  } else {
+    console.error('[Firebase] Auth initialization error:', error);
+    throw error;
+  }
+}
+
+export const auth: Auth = authInstance;
 
 /**
  * Helper function to test Firebase connection
