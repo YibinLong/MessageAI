@@ -42,6 +42,13 @@ export default function AppLayout() {
           presentation: 'modal', // Shows as modal on iOS
         }}
       />
+      <Stack.Screen
+        name="chat/[chatId]"
+        options={{
+          title: 'Chat',
+          // Header will be updated dynamically in chat screen with participant name
+        }}
+      />
     </Stack>
   );
 }

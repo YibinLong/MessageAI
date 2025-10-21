@@ -7,14 +7,19 @@
  * WHY: We need a landing screen for authenticated users.
  * WHAT: Shows user's name, avatar, and sign-out button. Will be replaced with
  * actual chat list in Epic 2.3.
+ * 
+ * NOTE: Temporary "Create Test Chat" button added for Epic 2.2 testing.
+ * TODO: Remove in Epic 2.10 - replace with proper contact discovery.
  */
 
+import { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text, Button, Avatar, Card } from 'react-native-paper';
+import { Text, Button, Avatar, Card, TextInput as PaperTextInput, Dialog, Portal } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { signOut } from '../../services/auth';
 import { updateUserPresence } from '../../services/userService';
+import { findUserByEmail, createOrGetChat } from '../../services/chatService';
 
 /**
  * Chat List Screen Component (Placeholder)
@@ -25,6 +30,11 @@ import { updateUserPresence } from '../../services/userService';
 export default function ChatListScreen() {
   const router = useRouter();
   const { user, clearUser } = useAuthStore();
+  
+  // State for "Create Test Chat" dialog
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [creating, setCreating] = useState(false);
   
   /**
    * Handle sign out
@@ -86,6 +96,65 @@ export default function ChatListScreen() {
     router.push('/(app)/edit-profile');
   };
   
+  /**
+   * Handle creating a test chat
+   * 
+   * WHAT: Looks up user by email, creates chat, navigates to chat screen
+   * WHY: Temporary testing feature for Epic 2.2 (remove in Epic 2.10)
+   * 
+   * TODO: Remove this in Epic 2.10 - replace with proper contact discovery
+   */
+  const handleCreateTestChat = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be signed in to create a chat');
+      return;
+    }
+    
+    const email = emailInput.trim().toLowerCase();
+    
+    if (!email) {
+      Alert.alert('Error', 'Please enter an email address');
+      return;
+    }
+    
+    if (email === user.email?.toLowerCase()) {
+      Alert.alert('Error', 'You cannot create a chat with yourself');
+      return;
+    }
+    
+    setCreating(true);
+    
+    try {
+      console.log('[ChatList] Creating chat with user:', email);
+      
+      // Find user by email
+      const otherUserId = await findUserByEmail(email);
+      
+      if (!otherUserId) {
+        Alert.alert('User Not Found', `No user found with email: ${email}`);
+        setCreating(false);
+        return;
+      }
+      
+      // Create or get chat
+      const chat = await createOrGetChat(user.id, otherUserId);
+      
+      console.log('[ChatList] Chat created/retrieved:', chat.id);
+      
+      // Close dialog
+      setDialogVisible(false);
+      setEmailInput('');
+      setCreating(false);
+      
+      // Navigate to chat screen
+      router.push(`/(app)/chat/${chat.id}`);
+    } catch (error: any) {
+      console.error('[ChatList] Failed to create chat:', error);
+      Alert.alert('Error', 'Failed to create chat. Please try again.');
+      setCreating(false);
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <Card style={styles.card}>
@@ -123,6 +192,18 @@ export default function ChatListScreen() {
         </Card.Content>
       </Card>
       
+      {/* Create Test Chat Button */}
+      {/* TODO: Remove in Epic 2.10 - replace with proper contact discovery */}
+      <Button
+        mode="contained"
+        onPress={() => setDialogVisible(true)}
+        style={styles.button}
+        buttonColor="#25D366"
+        icon="message-plus"
+      >
+        Create Test Chat
+      </Button>
+      
       {/* Edit Profile Button */}
       <Button
         mode="outlined"
@@ -143,6 +224,41 @@ export default function ChatListScreen() {
       >
         Sign Out
       </Button>
+      
+      {/* Create Chat Dialog */}
+      {/* TODO: Remove in Epic 2.10 */}
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={() => !creating && setDialogVisible(false)}>
+          <Dialog.Title>Create Test Chat</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.dialogText}>
+              Enter the email address of the user you want to chat with:
+            </Text>
+            <PaperTextInput
+              mode="outlined"
+              label="Email Address"
+              value={emailInput}
+              onChangeText={setEmailInput}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              disabled={creating}
+              style={styles.textInput}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setDialogVisible(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button 
+              onPress={handleCreateTestChat} 
+              loading={creating}
+              disabled={creating || !emailInput.trim()}
+            >
+              Create Chat
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -185,6 +301,12 @@ const styles = StyleSheet.create({
   },
   button: {
     marginBottom: 12,
+  },
+  dialogText: {
+    marginBottom: 16,
+  },
+  textInput: {
+    marginTop: 8,
   },
 });
 
