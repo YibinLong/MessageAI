@@ -39,13 +39,17 @@ let operationQueue: Promise<any> = Promise.resolve();
  * @returns Promise that resolves with operation result
  */
 async function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
-  // Chain this operation after the previous one
-  operationQueue = operationQueue.then(
+  // Create a promise for this specific operation
+  const thisOperation = operationQueue.then(
     () => operation(),
     () => operation() // Run even if previous operation failed
   );
   
-  return operationQueue;
+  // Update the global queue to include this operation
+  operationQueue = thisOperation;
+  
+  // Return the promise for this specific operation
+  return thisOperation;
 }
 
 /**
