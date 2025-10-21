@@ -26,10 +26,9 @@ alwaysApply: true
 
 4. **Create PRs ONLY when explicitly requested**
    - User must explicitly ask "create a PR" or "make a pull request"
-   - Use GitHub CLI (`gh pr create`) to create draft PRs
+   - Use GitHub CLI (`gh pr create`) to create regular PRs (not drafts)
    - NEVER push code automatically - user reviews first
    - NEVER merge PRs - user does this manually on GitHub.com
-   - Always create as draft for user review
 
 ### What AI Does NOT Do:
 - ❌ Create branches (user does this)
