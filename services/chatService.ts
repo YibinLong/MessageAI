@@ -271,11 +271,13 @@ export async function createGroupChat(
     console.log('[ChatService] Group ID:', groupId);
     
     // Create group chat object
+    // WHY: We build this object conditionally to avoid setting photoURL to undefined
+    // WHAT: Only include photoURL if it has a value (Firebase doesn't allow undefined)
     const newChat: Chat = {
       id: groupId,
       type: 'group',
       name,
-      photoURL,
+      ...(photoURL && { photoURL }), // Only include photoURL if it exists
       participants,
       admins: [createdBy], // Creator is the admin
       updatedAt: Timestamp.now(),
