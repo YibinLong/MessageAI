@@ -47,6 +47,14 @@ export const onMessageCreated = functions.firestore
       const chat = chatDoc.data();
       if (!chat) return;
       
+      // Validate participants array exists
+      // WHY: Prevents runtime error if participants field is missing or malformed
+      // WHAT: Check if participants exists and is an array before calling .filter()
+      if (!chat.participants || !Array.isArray(chat.participants)) {
+        console.error('[Notifications] Chat participants missing or malformed for chat:', chatId);
+        return;
+      }
+      
       // Find recipients (all participants except sender)
       const recipients = chat.participants.filter((id: string) => id !== message.senderId);
       
@@ -62,10 +70,15 @@ export const onMessageCreated = functions.firestore
       const senderName = senderDoc.exists ? senderDoc.data()?.displayName || 'Someone' : 'Someone';
       
       // Prepare notification payload
-      const notificationTitle = chat.type === 'group' ? `${chat.name}` : senderName;
+      // WHY: Provide fallbacks for undefined/null values to prevent displaying 'undefined' or 'null'
+      // WHAT: Use default values for chat name and message text
+      const groupName = chat.name || 'Group Chat';
+      const messageText = message.text || '📷 Image'; // Default for image-only messages
+      
+      const notificationTitle = chat.type === 'group' ? groupName : senderName;
       const notificationBody = chat.type === 'group' 
-        ? `${senderName}: ${message.text}`
-        : message.text;
+        ? `${senderName}: ${messageText}`
+        : messageText;
       
       // Send notification to each recipient
       for (const recipientId of recipients) {
