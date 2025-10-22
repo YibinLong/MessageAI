@@ -13,6 +13,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { onMessageCreated } from './notifications';
 
 /**
  * Initialize Firebase Admin SDK
@@ -21,6 +22,11 @@ import * as admin from 'firebase-admin';
  * WHAT: Initializes with default credentials (automatic on Firebase)
  */
 admin.initializeApp();
+
+/**
+ * Export notification functions
+ */
+export { onMessageCreated };
 
 /**
  * Test function to verify Cloud Functions are working
@@ -42,31 +48,9 @@ export const helloWorld = functions.https.onRequest((request, response) => {
 });
 
 /**
- * Test Firestore trigger
- * 
- * WHY: Demonstrates how to react to database changes
- * WHAT: Logs when a new message is created
- * 
- * This is a template for future AI functions that will trigger on new messages
+ * Note: onMessageCreated is now exported from notifications.ts
+ * This function sends push notifications when new messages arrive
  */
-export const onMessageCreated = functions.firestore
-  .document('chats/{chatId}/messages/{messageId}')
-  .onCreate(async (snapshot, context) => {
-    const message = snapshot.data();
-    const { chatId, messageId } = context.params;
-    
-    functions.logger.info('New message created:', {
-      chatId,
-      messageId,
-      senderId: message.senderId,
-      text: message.text?.substring(0, 50) // First 50 chars
-    });
-    
-    // TODO: Add AI categorization here in Phase 3
-    // TODO: Add push notification sending here
-    
-    return null;
-  });
 
 /**
  * Placeholder for AI categorization function
