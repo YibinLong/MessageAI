@@ -8,10 +8,10 @@
  * WHAT: Message list + input field + real-time sync + offline queue
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, Stack, useFocusEffect, useNavigation } from 'expo-router';
 import { useAuthStore } from '../../../stores/authStore';
 import { ConnectionBanner } from '../../../components/ConnectionBanner';
 import { MessageBubble } from '../../../components/MessageBubble';
@@ -30,7 +30,9 @@ import {
 } from '../../../services/messageService';
 import { getChatById } from '../../../services/chatService';
 import { getUserById } from '../../../services/userService';
-import { Message, User } from '../../../types';
+import { Message, User, Chat } from '../../../types';
+import { listenToPresence, PresenceData } from '../../../services/presenceService';
+import { formatDistanceToNow } from 'date-fns';
 
 /**
  * Chat Screen Component
@@ -49,18 +51,22 @@ export default function ChatScreen() {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const { user: currentUser } = useAuthStore();
   const { isConnected } = useNetworkStatus();
+  const navigation = useNavigation();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chat, setChat] = useState<Chat | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [participantProfiles, setParticipantProfiles] = useState<Map<string, User>>(new Map());
+  const [otherUserPresence, setOtherUserPresence] = useState<PresenceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
 
   /**
-   * Load chat metadata and other user's profile
+   * Load chat metadata and all participant profiles
    * 
-   * WHY: We need to show the other person's name in the header
-   * WHAT: Fetches chat from Firestore, then fetches the other participant's profile
+   * WHY: We need chat data for groups (name, type) and all participant profiles for displaying sender info
+   * WHAT: Fetches chat from Firestore, then loads ALL participant profiles (needed for groups)
    */
   useEffect(() => {
     async function loadChatData() {
@@ -70,23 +76,41 @@ export default function ChatScreen() {
         console.log('[ChatScreen] Loading chat data for:', chatId);
 
         // Get chat metadata
-        const chat = await getChatById(chatId);
-        if (!chat) {
+        const chatData = await getChatById(chatId);
+        if (!chatData) {
           setError('Chat not found');
           return;
         }
 
-        // Find the other participant (not current user)
-        const otherUserId = chat.participants.find(id => id !== currentUser.id);
-        if (!otherUserId) {
-          setError('No other participant found');
-          return;
-        }
+        // Store chat object (needed to check if group)
+        setChat(chatData);
 
-        // Load other user's profile
-        const otherUserData = await getUserById(otherUserId);
-        if (otherUserData) {
-          setOtherUser(otherUserData);
+        // Load ALL participant profiles (for groups, we need everyone)
+        const profiles = new Map<string, User>();
+        for (const participantId of chatData.participants) {
+          if (participantId === currentUser.id) continue; // Skip current user
+          
+          try {
+            const userProfile = await getUserById(participantId);
+            if (userProfile) {
+              profiles.set(participantId, userProfile);
+            }
+          } catch (error) {
+            console.warn('[ChatScreen] Failed to load profile for:', participantId, error);
+          }
+        }
+        
+        setParticipantProfiles(profiles);
+
+        // For 1:1 chats, also set the "other user" for backwards compatibility
+        if (chatData.type === '1:1') {
+          const otherUserId = chatData.participants.find(id => id !== currentUser.id);
+          if (otherUserId) {
+            const otherUserData = profiles.get(otherUserId);
+            if (otherUserData) {
+              setOtherUser(otherUserData);
+            }
+          }
         }
 
         // Mark chat as read (reset unread count for current user)
@@ -101,6 +125,79 @@ export default function ChatScreen() {
 
     loadChatData();
   }, [chatId, currentUser]);
+
+  /**
+   * Set up presence listener for other user (1:1 chats only)
+   * 
+   * WHY: Show online/offline status and last seen in chat header
+   * WHAT: Listens to Realtime Database for other user's presence
+   */
+  useEffect(() => {
+    if (!otherUser || chat?.type === 'group') return; // Only for 1:1 chats
+
+    console.log('[ChatScreen] Setting up presence listener for:', otherUser.id);
+    
+    const unsubscribe = listenToPresence(otherUser.id, (presence) => {
+      setOtherUserPresence(presence);
+    });
+
+    return () => {
+      console.log('[ChatScreen] Cleaning up presence listener');
+      unsubscribe();
+    };
+  }, [otherUser, chat]);
+
+  /**
+   * Update header title dynamically with presence info
+   * 
+   * WHY: Need to show chat name and presence status reactively
+   * WHAT: Updates navigation header whenever chat, presence, or profiles change
+   */
+  useLayoutEffect(() => {
+    if (!chat) return;
+
+    let title = '';
+    let subtitle = '';
+
+    if (chat.type === 'group') {
+      // Group chat: show group name and member count
+      title = chat.name || 'Group Chat';
+      subtitle = `${chat.participants.length} members`;
+    } else {
+      // 1:1 chat: show user name and presence
+      title = otherUser?.displayName || 'Chat';
+      
+      // Format presence status inline (can't use getPresenceStatus before it's defined)
+      if (otherUserPresence) {
+        if (otherUserPresence.online) {
+          subtitle = 'Online';
+        } else {
+          try {
+            const lastSeenDate = new Date(otherUserPresence.lastSeen);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now.getTime() - lastSeenDate.getTime()) / 1000);
+            
+            if (diffInSeconds < 60) {
+              subtitle = 'Last seen just now';
+            } else {
+              const distance = formatDistanceToNow(lastSeenDate, { addSuffix: false })
+                .replace('about ', '')
+                .replace('less than ', '');
+              subtitle = `Last seen ${distance} ago`;
+            }
+          } catch (error) {
+            subtitle = '';
+          }
+        }
+      }
+    }
+
+    navigation.setOptions({
+      title,
+      // Note: headerSubtitle doesn't exist in expo-router, so we append to title
+      headerTitle: subtitle ? `${title}\n${subtitle}` : title,
+    });
+  }, [chat, otherUser, otherUserPresence, navigation]);
 
   /**
    * Load messages from SQLite cache (instant display)
@@ -213,13 +310,21 @@ export default function ChatScreen() {
   );
 
   /**
-   * Subscribe to typing indicator
+   * Subscribe to typing indicator (1:1 chats only)
    * 
    * WHY: Users need to see when the other person is typing
    * WHAT: Sets up listener for other user's typing status
+   * 
+   * NOTE: For MVP, typing indicators only work in 1:1 chats.
+   * Group chat typing can be implemented later by subscribing to all participants.
    */
   useEffect(() => {
-    if (!chatId || !otherUser || !currentUser) return;
+    // Only set up typing for 1:1 chats
+    if (!chatId || !currentUser || !chat || chat.type !== '1:1' || !otherUser) {
+      // For groups or when data not ready, don't show typing
+      setIsOtherUserTyping(false);
+      return;
+    }
 
     console.log('[ChatScreen] Subscribing to typing indicator for:', otherUser.id);
 
@@ -237,7 +342,7 @@ export default function ChatScreen() {
       console.log('[ChatScreen] Cleaning up typing listener');
       unsubscribe();
     };
-  }, [chatId, otherUser, currentUser]);
+  }, [chatId, otherUser, currentUser, chat]);
 
   /**
    * Handle sending a new message
@@ -270,12 +375,66 @@ export default function ChatScreen() {
    * Render individual message item
    * 
    * WHY: FlatList needs a render function for each message
-   * WHAT: Returns MessageBubble component
+   * WHAT: Returns MessageBubble component with group support
    */
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isSent = item.senderId === currentUser?.id;
-    return <MessageBubble message={item} isSent={isSent} />;
-  }, [currentUser]);
+    const isGroupChat = chat?.type === 'group';
+    
+    // Get sender's profile (for group chats, to show name/avatar)
+    const senderUser = participantProfiles.get(item.senderId);
+    
+    // Calculate read count for group sent messages
+    let readByCount: number | undefined;
+    if (isGroupChat && isSent && item.readBy) {
+      // Count how many participants (excluding sender) have read the message
+      readByCount = item.readBy.filter(userId => userId !== currentUser?.id).length;
+    }
+    
+    return (
+      <MessageBubble 
+        message={item} 
+        isSent={isSent}
+        isGroupChat={isGroupChat}
+        senderUser={senderUser}
+        readByCount={readByCount}
+      />
+    );
+  }, [currentUser, chat, participantProfiles]);
+
+  /**
+   * Format presence status for header
+   * 
+   * WHY: Show "Online" or "Last seen X ago" based on presence data
+   * WHAT: Returns formatted presence string
+   */
+  const getPresenceStatus = useCallback((): string => {
+    if (!otherUserPresence) return '';
+    
+    if (otherUserPresence.online) {
+      return 'Online';
+    }
+    
+    // Show last seen timestamp
+    try {
+      const lastSeenDate = new Date(otherUserPresence.lastSeen);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - lastSeenDate.getTime()) / 1000);
+      
+      // If less than 1 minute, show "just now"
+      if (diffInSeconds < 60) {
+        return 'Last seen just now';
+      }
+      
+      const distance = formatDistanceToNow(lastSeenDate, { addSuffix: false })
+        .replace('about ', '')
+        .replace('less than ', '');
+      
+      return `Last seen ${distance} ago`;
+    } catch (error) {
+      return '';
+    }
+  }, [otherUserPresence]);
 
   /**
    * Key extractor for FlatList
@@ -321,13 +480,8 @@ export default function ChatScreen() {
 
   return (
     <>
-      {/* Update header with other user's name */}
-      <Stack.Screen
-        options={{
-          title: otherUser?.displayName || 'Chat',
-        }}
-      />
-
+      {/* Header is updated dynamically via useLayoutEffect above */}
+      
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
