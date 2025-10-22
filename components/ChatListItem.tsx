@@ -32,12 +32,14 @@ interface ChatListItemProps {
  * WHAT: Displays a single chat with avatar, name, last message, and unread count
  * WHY: Provides a consistent WhatsApp-style list item for all chats
  * 
+ * NOTE: Memoized for performance in long chat lists
+ * 
  * @param chat - Chat object to display
  * @param currentUserId - Current user's ID (to filter out of participants)
  * @param otherUser - User object for the other participant (for displaying name/photo)
  * @param onPress - Handler for when the item is tapped
  */
-export function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline }: ChatListItemProps) {
+export const ChatListItem = React.memo(function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline }: ChatListItemProps) {
   /**
    * Get display name for the chat
    * 
@@ -171,7 +173,7 @@ export function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline
       style={styles.listItem}
     />
   );
-}
+});
 
 const styles = StyleSheet.create({
   listItem: {
