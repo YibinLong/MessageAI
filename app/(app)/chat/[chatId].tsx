@@ -17,10 +17,12 @@ import { ConnectionBanner } from '../../../components/ConnectionBanner';
 import { MessageBubble } from '../../../components/MessageBubble';
 import { MessageInput } from '../../../components/MessageInput';
 import { TypingIndicator } from '../../../components/TypingIndicator';
+import { ImageViewer } from '../../../components/ImageViewer';
 import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
 import { subscribeToUserTyping } from '../../../services/typingService';
 import { 
   sendMessage, 
+  sendImageMessage,
   subscribeToMessages, 
   loadMessagesFromCache,
   retryUnsentMessages,
@@ -106,6 +108,8 @@ export default function ChatScreen() {
   const [otherUserPresence, setOtherUserPresence] = useState<PresenceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
 
   /**
    * Load chat metadata and all participant profiles
@@ -418,6 +422,43 @@ export default function ChatScreen() {
   }, [chatId, currentUser]);
 
   /**
+   * Handle sending an image message
+   * 
+   * WHY: User selected image to send
+   * WHAT: Calls sendImageMessage service which compresses, uploads, and creates message
+   */
+  const handleSendImage = useCallback(async (imageUri: string) => {
+    if (!chatId || !currentUser) {
+      console.error('[ChatScreen] Cannot send image: missing chatId or currentUser');
+      return;
+    }
+
+    try {
+      console.log('[ChatScreen] Sending image message');
+
+      // Send image message (compresses, uploads to Storage, creates message)
+      await sendImageMessage(chatId, imageUri, currentUser.id);
+
+      console.log('[ChatScreen] Image message sent successfully');
+    } catch (err) {
+      console.error('[ChatScreen] Failed to send image:', err);
+      throw err; // Re-throw so MessageInput can show error
+    }
+  }, [chatId, currentUser]);
+
+  /**
+   * Handle image press in message bubble
+   * 
+   * WHY: User tapped an image in chat
+   * WHAT: Opens full-screen image viewer
+   */
+  const handleImagePress = useCallback((imageUrl: string) => {
+    console.log('[ChatScreen] Opening image viewer:', imageUrl);
+    setSelectedImageUrl(imageUrl);
+    setImageViewerVisible(true);
+  }, []);
+
+  /**
    * Render individual message item
    * 
    * WHY: FlatList needs a render function for each message
@@ -444,9 +485,10 @@ export default function ChatScreen() {
         isGroupChat={isGroupChat}
         senderUser={senderUser}
         readByCount={readByCount}
+        onImagePress={handleImagePress}
       />
     );
-  }, [currentUser, chat, participantProfiles]);
+  }, [currentUser, chat, participantProfiles, handleImagePress]);
 
   /**
    * Format presence status for header
@@ -556,12 +598,20 @@ export default function ChatScreen() {
         {/* Message input - only render when we have valid data */}
         {chatId && currentUser?.id && (
           <MessageInput 
-            onSend={handleSendMessage} 
+            onSend={handleSendMessage}
+            onSendImage={handleSendImage}
             chatId={chatId as string}
             userId={currentUser.id}
           />
         )}
       </KeyboardAvoidingView>
+
+      {/* Image Viewer Modal */}
+      <ImageViewer
+        visible={imageViewerVisible}
+        imageUrl={selectedImageUrl}
+        onClose={() => setImageViewerVisible(false)}
+      />
     </>
   );
 }
