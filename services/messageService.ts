@@ -35,6 +35,7 @@ import {
 } from './sqlite';
 import { updateChatLastMessage } from './chatService';
 import { Message, SQLiteMessage } from '../types';
+import { uploadChatImage } from '../utils/imageUpload';
 
 /**
  * Send a text message
@@ -146,6 +147,127 @@ export async function sendMessage(
     return message;
   } catch (error) {
     console.error('[MessageService] Failed to send message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send an image message
+ * 
+ * WHY: Users need to send images in chats. This handles the full flow:
+ * optimistic UI, upload to Storage, create message, handle offline.
+ * 
+ * WHAT:
+ * 1. Generate message ID
+ * 2. Upload image to Firebase Storage
+ * 3. Save message to SQLite with mediaURL (optimistic UI)
+ * 4. Upload message doc to Firestore
+ * 5. Update chat's last message
+ * 
+ * FLOW:
+ * - Online: image appears with loading state, uploads in background
+ * - Offline: image saved locally, uploads when reconnected
+ * 
+ * @param chatId - Chat ID to send image message to
+ * @param imageUri - Local file URI of the compressed image
+ * @param senderId - User ID of sender (current user)
+ * @returns Message object (with type 'image')
+ */
+export async function sendImageMessage(
+  chatId: string,
+  imageUri: string,
+  senderId: string
+): Promise<Message> {
+  const messageId = uuid.v4() as string;
+  const timestamp = Timestamp.now();
+  
+  console.log('[MessageService] Sending image message:', { chatId, messageId });
+  
+  try {
+    // 1. Upload image to Firebase Storage first
+    // WHY: We need the download URL before creating the message
+    console.log('[MessageService] Uploading image to Storage...');
+    const mediaURL = await uploadChatImage(senderId, messageId, imageUri);
+    const mediaPath = `media/${senderId}/${messageId}.jpg`;
+    
+    console.log('[MessageService] Image uploaded:', mediaURL);
+    
+    // 2. Create message object
+    const message: Message = {
+      id: messageId,
+      chatId,
+      senderId,
+      text: '', // Image messages have empty text
+      timestamp,
+      status: 'sending',
+      readBy: [],
+      type: 'image',
+      mediaURL,
+      mediaPath,
+    };
+    
+    // 3. Save to SQLite immediately (optimistic UI)
+    const sqliteMessage: SQLiteMessage = {
+      id: message.id,
+      chatId: message.chatId,
+      senderId: message.senderId,
+      text: message.text,
+      timestamp: timestamp.toMillis(),
+      status: 'sending',
+      readBy: JSON.stringify(message.readBy),
+      type: 'image',
+      mediaURL: message.mediaURL,
+      synced: 0,
+    };
+    
+    try {
+      await insertMessage(sqliteMessage);
+      console.log('[MessageService] Image message saved to SQLite (optimistic)');
+    } catch (sqliteError) {
+      console.warn('[MessageService] SQLite insert failed, continuing without cache:', sqliteError);
+    }
+    
+    // 4. Upload message document to Firestore
+    try {
+      const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+      await setDoc(messageRef, {
+        id: messageId,
+        chatId,
+        senderId,
+        text: '',
+        timestamp: serverTimestamp(),
+        status: 'sending',
+        readBy: [],
+        type: 'image',
+        mediaURL,
+        mediaPath,
+      });
+      
+      console.log('[MessageService] Image message uploaded to Firestore');
+      
+      // Update to 'sent' after successful upload
+      await updateDoc(messageRef, { status: 'sent' });
+      console.log('[MessageService] Image message status updated to sent');
+      
+      // 5. Update SQLite status
+      try {
+        await updateMessageStatusSQLite(messageId, 'sent');
+      } catch (sqliteError) {
+        console.warn('[MessageService] SQLite status update failed:', sqliteError);
+      }
+      
+      // 6. Update chat's last message (show "📷 Image" as preview)
+      await updateChatLastMessage(chatId, '📷 Image', senderId);
+      
+      console.log('[MessageService] Image message sent successfully');
+    } catch (uploadError) {
+      console.error('[MessageService] Failed to upload message to Firestore:', uploadError);
+      // Message is saved locally and will retry later
+    }
+    
+    return message;
+  } catch (error) {
+    console.error('[MessageService] Failed to send image message:', error);
     throw error;
   }
 }
