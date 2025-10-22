@@ -10,7 +10,7 @@ This guide provides exact step-by-step instructions for testing the implemented 
 
 ### 2. Start the Development Server
 ```bash
-cd /Users/yibin/Documents/WORKZONE/VSCODE/GAUNTLET_AI/2_Week/Whatsapp_Clone
+# Navigate to the project root directory
 npm start
 ```
 
