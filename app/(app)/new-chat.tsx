@@ -8,7 +8,7 @@
  * WHAT: Searchable list of all users, tap to create/open chat
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { Appbar, Searchbar, List, Avatar, Text, ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ import { createOrGetChat } from '../../services/chatService';
 import { User } from '../../types';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { listenToPresence, PresenceData } from '../../services/presenceService';
 
 /**
  * New Chat Screen Component
@@ -36,6 +37,10 @@ export default function NewChatScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [presenceData, setPresenceData] = useState<Map<string, PresenceData>>(new Map());
+  
+  // Refs for debouncing
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Load all users on mount
@@ -48,24 +53,46 @@ export default function NewChatScreen() {
   }, []);
 
   /**
-   * Filter users when search query changes
+   * Filter users with debouncing (500ms)
    * 
-   * WHY: Allow users to search for specific contacts
-   * WHAT: Filters user list by display name (case-insensitive)
+   * WHY: Prevent excessive filtering on every keystroke
+   * WHAT: Debounces search input and filters user list
    */
-  useEffect(() => {
-    if (!searchQuery.trim()) {
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    
+    // Clear existing timeout
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    // If empty query, show all users immediately
+    if (!query.trim()) {
       setFilteredUsers(users);
       return;
     }
-
-    const query = searchQuery.toLowerCase();
-    const filtered = users.filter(user =>
-      user.displayName.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query)
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users]);
+    
+    // Debounce filter operation (500ms)
+    searchDebounceRef.current = setTimeout(() => {
+      const lowerQuery = query.toLowerCase();
+      const filtered = users.filter(user =>
+        user.displayName.toLowerCase().includes(lowerQuery) ||
+        user.email?.toLowerCase().includes(lowerQuery)
+      );
+      setFilteredUsers(filtered);
+    }, 500);
+  }, [users]);
+  
+  /**
+   * Cleanup debounce timeout on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   /**
    * Load all users from Firestore
@@ -88,6 +115,25 @@ export default function NewChatScreen() {
       console.log(`[NewChat] Loaded ${otherUsers.length} users`);
       setUsers(otherUsers);
       setFilteredUsers(otherUsers);
+      
+      // Set up presence listeners for all users
+      // WHY: Show online/offline status for each user
+      const presenceUnsubscribers: (() => void)[] = [];
+      otherUsers.forEach(user => {
+        const unsubscribe = listenToPresence(user.id, (presence) => {
+          setPresenceData(prev => {
+            const updated = new Map(prev);
+            updated.set(user.id, presence);
+            return updated;
+          });
+        });
+        presenceUnsubscribers.push(unsubscribe);
+      });
+      
+      // Cleanup function
+      return () => {
+        presenceUnsubscribers.forEach(unsub => unsub());
+      };
     } catch (error) {
       console.error('[NewChat] Failed to load users:', error);
       Alert.alert('Error', 'Failed to load users. Please try again.');
@@ -134,7 +180,7 @@ export default function NewChatScreen() {
    * Render a single user item
    * 
    * WHY: Display user in the contact list
-   * WHAT: Shows avatar, name, and email/bio
+   * WHAT: Shows avatar, name, email/bio, and online status
    */
   const renderUserItem = ({ item }: { item: User }) => {
     const initials = item.displayName
@@ -143,6 +189,10 @@ export default function NewChatScreen() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+    
+    // Get presence data for this user
+    const presence = presenceData.get(item.id);
+    const isOnline = presence?.online || false;
 
     return (
       <List.Item
@@ -156,6 +206,10 @@ export default function NewChatScreen() {
               <Avatar.Image size={50} source={{ uri: item.photoURL }} />
             ) : (
               <Avatar.Text size={50} label={initials} />
+            )}
+            {/* Online status indicator */}
+            {isOnline && (
+              <View style={styles.onlineIndicator} />
             )}
           </View>
         )}
@@ -230,7 +284,7 @@ export default function NewChatScreen() {
       {/* Search Bar */}
       <Searchbar
         placeholder="Search users..."
-        onChangeText={setSearchQuery}
+        onChangeText={handleSearchChange}
         value={searchQuery}
         style={styles.searchBar}
         disabled={loading || creating}
@@ -293,6 +347,18 @@ const styles = StyleSheet.create({
   avatarContainer: {
     justifyContent: 'center',
     marginRight: 12,
+    position: 'relative',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#25D366',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   userName: {
     fontSize: 16,
