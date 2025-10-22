@@ -162,46 +162,78 @@ firebase functions:log
 
 ## 📱 How to Test the App
 
-### Option 1: Test on Your Phone (Easiest)
+### **Option 1: Local Development (Hot Reload)**
 
-1. **Install Expo Go:**
-   - Download "Expo Go" from Google Play Store (Android)
-   - Open the app
+**Best for:** Daily coding, instant updates
 
-2. **Start the dev server:**
-   ```bash
-   npm start
-   ```
+```bash
+npm start
+```
 
-3. **Connect to your app:**
-   - **Android:** Open Expo Go → Tap "Scan QR code" → Scan the QR in terminal
-   - **iOS:** Open Camera app → Point at QR code → Tap notification
+**On Physical Android:**
+- Install "Expo Go" from Play Store
+- Scan QR code from terminal
+- ✅ Instant updates, hot reload
+- ❌ Can't test notifications (Expo Go limitation)
+- ⚠️ Terminal must stay running
 
-4. **Make sure:** Your phone and computer are on the **same WiFi network**
+**On Emulator:**
+```bash
+# Start emulator, then:
+npm start
+# Press 'a' to open on Android emulator
+```
 
-### Option 2: Test in Web Browser (Quick Debugging)
+---
 
-1. **Start the dev server:**
-   ```bash
-   npm start
-   ```
+### **Option 2: Development Build (Full Testing)**
 
-2. **Press `w` in the terminal** - Opens in your browser
-   - Good for: Quick testing, seeing console errors
-   - Note: Some mobile-specific features won't work
+**Best for:** Testing notifications, full features
 
-### Option 3: Use Android Emulator (Advanced)
+```bash
+# One-time: Login to EAS
+npx eas login
 
-**If you have Android Studio installed:**
+# Build APK (takes ~10-20 min)
+eas build --profile development --platform android
 
-1. **Start the emulator** in Android Studio
-2. **Start the dev server:**
-   ```bash
-   npm start
-   ```
-3. **Press `a` in the terminal** - Automatically opens in emulator
+# Install APK on phone, then:
+npm start
+# Press 's' to switch to development build
+```
 
-**Don't have Android Studio?** Download from: https://developer.android.com/studio
+- ✅ Notifications work
+- ✅ Still has hot reload
+- ⚠️ Terminal must be running for updates
+
+---
+
+### **Option 3: Share with Others (Standalone)**
+
+**Best for:** Letting friends/testers try your app
+
+```bash
+# Build standalone APK
+eas build --profile preview --platform android
+
+# Share the .apk file (Google Drive, email, etc.)
+```
+
+- ✅ Complete standalone app
+- ✅ Works independently
+- ❌ No hot reload
+- ✅ Your terminal does NOT need to run
+
+---
+
+### **Quick Decision Tree:**
+
+| I want to... | Command | Terminal Running? |
+|-------------|---------|-------------------|
+| Code and test quickly | `npm start` + Expo Go | ✅ Yes |
+| Test notifications | `eas build --profile development` | ✅ Yes (for updates) |
+| Share with friend | `eas build --profile preview` | ❌ No |
+| Publish to Play Store | `eas build --profile production` | ❌ No |
 
 ---
 

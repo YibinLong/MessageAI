@@ -33,8 +33,7 @@ module.exports = {
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      // Use environment variable instead of hardcoded path
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON,
+      googleServicesFile: "./google-services.json",
       softwareKeyboardLayoutMode: "pan"
     },
     web: {

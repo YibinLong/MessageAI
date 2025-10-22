@@ -20,12 +20,21 @@ import { NOTIFICATION_PROVIDER } from '../constants/config';
  * 
  * WHY: We need to define how notifications appear when the app is in foreground
  * WHAT: Show alert, play sound, and show badge for foreground notifications
+ * 
+ * PROPERTIES EXPLAINED:
+ * - shouldShowAlert: Show notification popup when app is in foreground (legacy, iOS)
+ * - shouldPlaySound: Play notification sound
+ * - shouldSetBadge: Update app badge count (iOS)
+ * - shouldShowBanner: Show notification banner at top (iOS 14+)
+ * - shouldShowList: Show in notification center list
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
