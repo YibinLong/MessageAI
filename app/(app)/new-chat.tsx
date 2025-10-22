@@ -39,8 +39,9 @@ export default function NewChatScreen() {
   const [creating, setCreating] = useState(false);
   const [presenceData, setPresenceData] = useState<Map<string, PresenceData>>(new Map());
   
-  // Refs for debouncing
+  // Refs for debouncing and cleanup
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const presenceCleanupRef = useRef<(() => void) | null>(null);
 
   /**
    * Load all users on mount
@@ -50,6 +51,14 @@ export default function NewChatScreen() {
    */
   useEffect(() => {
     loadUsers();
+    
+    // Cleanup function - called when component unmounts
+    return () => {
+      if (presenceCleanupRef.current) {
+        presenceCleanupRef.current();
+        presenceCleanupRef.current = null;
+      }
+    };
   }, []);
 
   /**
@@ -116,6 +125,12 @@ export default function NewChatScreen() {
       setUsers(otherUsers);
       setFilteredUsers(otherUsers);
       
+      // Clean up any existing presence listeners before setting up new ones
+      if (presenceCleanupRef.current) {
+        presenceCleanupRef.current();
+        presenceCleanupRef.current = null;
+      }
+      
       // Set up presence listeners for all users
       // WHY: Show online/offline status for each user
       const presenceUnsubscribers: (() => void)[] = [];
@@ -130,8 +145,8 @@ export default function NewChatScreen() {
         presenceUnsubscribers.push(unsubscribe);
       });
       
-      // Cleanup function
-      return () => {
+      // Store cleanup function in ref so useEffect can call it on unmount
+      presenceCleanupRef.current = () => {
         presenceUnsubscribers.forEach(unsub => unsub());
       };
     } catch (error) {
