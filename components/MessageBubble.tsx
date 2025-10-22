@@ -12,8 +12,8 @@
  * WHAT: Styled message bubble with text, timestamp, and status icon
  */
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
@@ -29,6 +29,7 @@ interface MessageBubbleProps {
   isGroupChat?: boolean; // True if this is a group chat
   senderUser?: User; // User object of message sender (for group chats)
   readByCount?: number; // Number of users who read this message (for group sent messages)
+  onImagePress?: (imageUrl: string) => void; // Callback when image is tapped
 }
 
 /**
@@ -121,9 +122,16 @@ function getSenderInitials(user: User | undefined): string {
  * 
  * WHAT: Displays a single message with WhatsApp-style design
  * WHY: Users need clear, familiar message UI
+ * 
+ * NOTE: Memoized for performance in long message lists
  */
-export function MessageBubble({ message, isSent, isGroupChat, senderUser, readByCount }: MessageBubbleProps) {
+export const MessageBubble = React.memo(function MessageBubble({ message, isSent, isGroupChat, senderUser, readByCount, onImagePress }: MessageBubbleProps) {
   const statusIcon = getStatusIcon(message.status);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  // Check if this is an image message
+  const isImageMessage = message.type === 'image' && message.mediaURL;
 
   return (
     <View style={[styles.container, isSent ? styles.sentContainer : styles.receivedContainer]}>
@@ -138,16 +146,50 @@ export function MessageBubble({ message, isSent, isGroupChat, senderUser, readBy
         </View>
       )}
       
-      <View style={[styles.bubble, isSent ? styles.sentBubble : styles.receivedBubble]}>
+      <View style={[styles.bubble, isSent ? styles.sentBubble : styles.receivedBubble, isImageMessage && styles.imageBubble]}>
         {/* Show sender name for received messages in group chats */}
         {isGroupChat && !isSent && senderUser && (
           <Text style={styles.senderName}>{senderUser.displayName}</Text>
         )}
         
-        {/* Message text */}
-        <Text style={[styles.text, isSent ? styles.sentText : styles.receivedText]}>
-          {message.text}
-        </Text>
+        {/* Image message */}
+        {isImageMessage ? (
+          <TouchableOpacity
+            onPress={() => onImagePress && onImagePress(message.mediaURL!)}
+            activeOpacity={0.8}
+            disabled={!onImagePress}
+          >
+            <View style={styles.imageContainer}>
+              {imageLoading && !imageError && (
+                <View style={styles.imagePlaceholder}>
+                  <ActivityIndicator size="large" color="#25D366" />
+                </View>
+              )}
+              {imageError ? (
+                <View style={styles.imageError}>
+                  <Ionicons name="image-outline" size={48} color="#999" />
+                  <Text style={styles.imageErrorText}>Failed to load image</Text>
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: message.mediaURL }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => {
+                    setImageLoading(false);
+                    setImageError(true);
+                  }}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        ) : (
+          /* Text message */
+          <Text style={[styles.text, isSent ? styles.sentText : styles.receivedText]}>
+            {message.text}
+          </Text>
+        )}
 
         {/* Timestamp and status row */}
         <View style={styles.metaRow}>
@@ -178,7 +220,7 @@ export function MessageBubble({ message, isSent, isGroupChat, senderUser, readBy
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -255,6 +297,39 @@ const styles = StyleSheet.create({
   },
   statusIcon: {
     marginLeft: 2,
+  },
+  imageBubble: {
+    padding: 4, // Less padding for images
+  },
+  imageContainer: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+  },
+  messageImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  imageError: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  imageErrorText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#999',
   },
 });
 
