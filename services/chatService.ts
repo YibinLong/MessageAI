@@ -304,6 +304,37 @@ export async function createGroupChat(
 }
 
 /**
+ * Update a group chat's photo URL
+ * 
+ * WHY: After creating a group and uploading its photo with the real group ID,
+ * we need to update the chat document with the photo URL.
+ * 
+ * WHAT: Updates the photoURL field in the group chat document
+ * 
+ * @param groupId - Group chat ID
+ * @param photoURL - Firebase Storage URL of the uploaded photo
+ */
+export async function updateGroupPhoto(
+  groupId: string,
+  photoURL: string
+): Promise<void> {
+  try {
+    console.log('[ChatService] Updating group photo:', groupId);
+    
+    const chatRef = doc(db, 'chats', groupId);
+    await updateDoc(chatRef, {
+      photoURL,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('[ChatService] Group photo updated successfully');
+  } catch (error) {
+    console.error('[ChatService] Failed to update group photo:', error);
+    throw error;
+  }
+}
+
+/**
  * Find user by email
  * 
  * WHY: For the temporary "Create Test Chat" feature, we need to look up
