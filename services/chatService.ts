@@ -26,6 +26,7 @@ import {
 import { db } from './firebase';
 import { upsertChat, getAllChats as getSQLiteChats } from './sqlite';
 import { Chat, SQLiteChat } from '../types';
+import uuid from 'react-native-uuid';
 
 /**
  * Generate a deterministic chat ID for 1:1 chats
@@ -241,6 +242,64 @@ async function cacheChatInSQLite(chat: Chat): Promise<void> {
     console.warn('[ChatService] Failed to cache chat in SQLite:', error);
     // Don't throw - caching failure shouldn't break the chat creation
     // App will work with Firestore-only mode
+  }
+}
+
+/**
+ * Create a group chat
+ * 
+ * WHY: Users need to create group chats with multiple participants
+ * WHAT: Creates a new chat document with type='group' and specified participants
+ * 
+ * @param name - Group name
+ * @param participants - Array of user IDs (must include creator)
+ * @param createdBy - User ID of creator
+ * @param photoURL - Optional group photo URL
+ * @returns Created chat object
+ */
+export async function createGroupChat(
+  name: string,
+  participants: string[],
+  createdBy: string,
+  photoURL?: string
+): Promise<Chat> {
+  try {
+    console.log('[ChatService] Creating group chat:', name);
+    
+    // Generate unique group ID using UUID
+    const groupId = uuid.v4() as string;
+    console.log('[ChatService] Group ID:', groupId);
+    
+    // Create group chat object
+    const newChat: Chat = {
+      id: groupId,
+      type: 'group',
+      name,
+      photoURL,
+      participants,
+      admins: [createdBy], // Creator is the admin
+      updatedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      createdBy,
+    };
+    
+    // Write to Firestore
+    const chatRef = doc(db, 'chats', groupId);
+    await setDoc(chatRef, {
+      ...newChat,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+    
+    console.log('[ChatService] Group chat created successfully');
+    
+    // Cache in SQLite
+    await cacheChatInSQLite(newChat);
+    
+    return newChat;
+  } catch (error) {
+    console.error('[ChatService] Failed to create group chat:', error);
+    throw error;
   }
 }
 
