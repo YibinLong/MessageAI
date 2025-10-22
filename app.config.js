@@ -33,7 +33,7 @@ module.exports = {
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       softwareKeyboardLayoutMode: "pan"
     },
     web: {
