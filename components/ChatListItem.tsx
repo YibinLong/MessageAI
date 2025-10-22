@@ -23,6 +23,7 @@ interface ChatListItemProps {
   currentUserId: string;
   otherUser?: User; // The other participant in the chat (for 1:1 chats)
   onPress: () => void;
+  isOnline?: boolean; // Whether the other user is online (for 1:1 chats)
 }
 
 /**
@@ -36,7 +37,7 @@ interface ChatListItemProps {
  * @param otherUser - User object for the other participant (for displaying name/photo)
  * @param onPress - Handler for when the item is tapped
  */
-export function ChatListItem({ chat, currentUserId, otherUser, onPress }: ChatListItemProps) {
+export function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline }: ChatListItemProps) {
   /**
    * Get display name for the chat
    * 
@@ -141,6 +142,10 @@ export function ChatListItem({ chat, currentUserId, otherUser, onPress }: ChatLi
           ) : (
             <Avatar.Text size={50} label={getInitials()} />
           )}
+          {/* Show green online indicator for 1:1 chats */}
+          {chat.type === '1:1' && isOnline && (
+            <View style={styles.onlineIndicator} />
+          )}
         </View>
       )}
       right={() => (
@@ -176,6 +181,18 @@ const styles = StyleSheet.create({
   avatarContainer: {
     justifyContent: 'center',
     marginRight: 12,
+    position: 'relative', // For absolute positioning of online indicator
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50', // Green for online
+    borderWidth: 2,
+    borderColor: '#fff', // White border for contrast
   },
   title: {
     fontSize: 16,
