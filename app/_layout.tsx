@@ -27,6 +27,8 @@ import {
   storeDeviceToken,
   setupNotificationListeners 
 } from '../services/notificationService';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 /**
  * Root Layout Component
@@ -257,12 +259,18 @@ export default function RootLayout() {
     );
   }
 
+  // WHY: GestureHandlerRootView enables gesture support for ImageViewer
   // WHY: PaperProvider enables Material Design 3 components throughout the app
+  // WHY: ErrorBoundary catches React errors and shows fallback UI
   // WHAT: Slot renders the current route
   return (
-    <PaperProvider>
-      <Slot />
-    </PaperProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <PaperProvider>
+          <Slot />
+        </PaperProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
