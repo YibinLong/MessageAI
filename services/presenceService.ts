@@ -12,7 +12,7 @@
  * WHAT: Manages /status/{userId} nodes with online status and lastSeen timestamp
  */
 
-import { ref, set, onValue, onDisconnect, serverTimestamp } from 'firebase/database';
+import { ref, set, onValue, onDisconnect, serverTimestamp, get } from 'firebase/database';
 import { realtimeDb } from './firebase';
 
 /**
@@ -40,7 +40,7 @@ export async function updatePresence(userId: string, online: boolean): Promise<v
     
     await set(presenceRef, {
       online,
-      lastSeen: Date.now(),
+      lastSeen: serverTimestamp(),
     });
     
     console.log('[PresenceService] Presence updated successfully');
@@ -86,7 +86,7 @@ export async function setupPresenceListener(userId: string): Promise<() => Promi
     // Now set user as online
     await set(presenceRef, {
       online: true,
-      lastSeen: Date.now(),
+      lastSeen: serverTimestamp(),
     });
     
     console.log('[PresenceService] User set to online');
@@ -101,7 +101,7 @@ export async function setupPresenceListener(userId: string): Promise<() => Promi
       // Set user offline
       await set(presenceRef, {
         online: false,
-        lastSeen: Date.now(),
+        lastSeen: serverTimestamp(),
       });
       
       console.log('[PresenceService] Presence cleanup complete');
@@ -163,7 +163,7 @@ export function listenToPresence(
  * Get current presence status for a user (one-time read)
  * 
  * WHY: Sometimes we need to check presence without setting up a listener
- * WHAT: Reads current value from /status/{userId}
+ * WHAT: Uses get() for a single snapshot read from /status/{userId}
  * 
  * @param userId - User ID to get presence for
  * @returns Current presence data or null if not available
@@ -173,25 +173,21 @@ export async function getPresence(userId: string): Promise<PresenceData | null> 
     console.log('[PresenceService] Getting presence for:', userId);
     
     const presenceRef = ref(realtimeDb, `status/${userId}`);
+    const snapshot = await get(presenceRef);
     
-    return new Promise((resolve) => {
-      onValue(
-        presenceRef,
-        (snapshot) => {
-          if (!snapshot.exists()) {
-            resolve(null);
-            return;
-          }
-          
-          const data = snapshot.val();
-          resolve({
-            online: data.online || false,
-            lastSeen: data.lastSeen || Date.now(),
-          });
-        },
-        { onlyOnce: true }
-      );
-    });
+    if (!snapshot.exists()) {
+      console.log('[PresenceService] No presence data found for:', userId);
+      return null;
+    }
+    
+    const data = snapshot.val();
+    const presence: PresenceData = {
+      online: data.online || false,
+      lastSeen: data.lastSeen || Date.now(),
+    };
+    
+    console.log('[PresenceService] Got presence:', userId, presence.online ? 'online' : 'offline');
+    return presence;
   } catch (error) {
     console.error('[PresenceService] Failed to get presence:', error);
     return null;

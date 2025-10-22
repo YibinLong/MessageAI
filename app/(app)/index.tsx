@@ -53,6 +53,7 @@ export default function ChatListScreen() {
   
   // Ref to store presence listener cleanup functions
   const presenceListenersRef = useRef<Map<string, () => void>>(new Map());
+  
 
   /**
    * Load chats on mount
@@ -425,30 +426,28 @@ export default function ChatListScreen() {
       {/* App Bar */}
       <Appbar.Header>
         <Appbar.Content title="MessageAI" />
-        <Appbar.Action
-          icon="dots-vertical"
-          onPress={() => setMenuVisible(true)}
-        />
+        <Menu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          anchor={
+            <Appbar.Action
+              icon="dots-vertical"
+              onPress={() => setMenuVisible(true)}
+            />
+          }
+        >
+          <Menu.Item
+            onPress={handleEditProfile}
+            title="Edit Profile"
+            leadingIcon="account-edit"
+          />
+          <Menu.Item
+            onPress={handleSignOut}
+            title="Sign Out"
+            leadingIcon="logout"
+          />
+        </Menu>
       </Appbar.Header>
-
-      {/* Menu as separate component to fix state issues */}
-      <Menu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        anchor={{ x: 1000, y: 60 }} // Position at top-right
-        anchorPosition="bottom"
-      >
-        <Menu.Item
-          onPress={handleEditProfile}
-          title="Edit Profile"
-          leadingIcon="account-edit"
-        />
-        <Menu.Item
-          onPress={handleSignOut}
-          title="Sign Out"
-          leadingIcon="logout"
-        />
-      </Menu>
 
       {/* Connection Banner */}
       <ConnectionBanner />
