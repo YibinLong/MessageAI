@@ -27,6 +27,7 @@ import { ChatListItem } from '../../components/ChatListItem';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { Timestamp } from 'firebase/firestore';
+import { listenToPresence, PresenceData, updatePresence } from '../../services/presenceService';
 
 /**
  * Chat List Screen Component
@@ -42,12 +43,16 @@ export default function ChatListScreen() {
   // State
   const [chats, setChats] = useState<Chat[]>([]);
   const [userProfiles, setUserProfiles] = useState<Map<string, User>>(new Map());
+  const [userPresence, setUserPresence] = useState<Map<string, PresenceData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   
   // Ref to track previous connection state for auto-refresh
   const wasOfflineRef = useRef(false);
+  
+  // Ref to store presence listener cleanup functions
+  const presenceListenersRef = useRef<Map<string, () => void>>(new Map());
 
   /**
    * Load chats on mount
@@ -73,6 +78,12 @@ export default function ChatListScreen() {
     return () => {
       console.log('[ChatList] Cleaning up chat listener');
       unsubscribe();
+      
+      // Clean up all presence listeners
+      console.log('[ChatList] Cleaning up presence listeners');
+      const listeners = presenceListenersRef.current;
+      listeners.forEach(unsubscribe => unsubscribe());
+      listeners.clear();
     };
   }, [currentUser]);
 
@@ -149,10 +160,44 @@ export default function ChatListScreen() {
   };
 
   /**
+   * Set up presence listeners for users
+   * 
+   * WHY: Need to show online/offline status in real-time
+   * WHAT: Sets up Realtime Database listeners for each user
+   * 
+   * @param userIds - User IDs to track presence for
+   */
+  const setupPresenceListeners = (userIds: string[]) => {
+    const existingListeners = presenceListenersRef.current;
+    
+    userIds.forEach(userId => {
+      // Skip if listener already exists
+      if (existingListeners.has(userId)) return;
+      
+      // Set up presence listener
+      const unsubscribe = listenToPresence(userId, (presence) => {
+        setUserPresence(prev => {
+          const newMap = new Map(prev);
+          if (presence) {
+            newMap.set(userId, presence);
+          } else {
+            newMap.delete(userId);
+          }
+          return newMap;
+        });
+      });
+      
+      existingListeners.set(userId, unsubscribe);
+    });
+    
+    console.log(`[ChatList] Set up ${existingListeners.size} presence listeners`);
+  };
+
+  /**
    * Load user profiles for all chat participants
    * 
    * WHY: Need to display names and photos in chat list
-   * WHAT: Fetches user documents for all unique participants
+   * WHAT: Fetches user documents for all unique participants and sets up presence tracking
    * 
    * @param chatsToProcess - Chats to load profiles for
    */
@@ -190,6 +235,9 @@ export default function ChatListScreen() {
 
       setUserProfiles(newProfiles);
       console.log(`[ChatList] Loaded ${newProfiles.size} user profiles`);
+      
+      // Set up presence listeners for all users
+      setupPresenceListeners(Array.from(userIds));
     } catch (error) {
       console.error('[ChatList] Failed to load user profiles:', error);
     }
@@ -280,9 +328,10 @@ export default function ChatListScreen() {
             try {
               console.log('[ChatList] Signing out...');
               
-              // Update user presence to offline
+              // Update user presence to offline in Realtime Database
+              // WHY: This ensures other users see the green dot disappear immediately
               if (currentUser) {
-                await updateUserPresence(currentUser.id, false);
+                await updatePresence(currentUser.id, false);
               }
               
               // Sign out from Firebase
@@ -325,16 +374,24 @@ export default function ChatListScreen() {
    * Render a single chat item
    * 
    * WHY: Display each chat in the list
-   * WHAT: Uses ChatListItem component
+   * WHAT: Uses ChatListItem component with presence data
    */
   const renderChatItem = ({ item }: { item: Chat }) => {
     const otherUser = getOtherUser(item);
+    
+    // Get online status for the other user (1:1 chats only)
+    let isOnline = false;
+    if (item.type === '1:1' && otherUser) {
+      const presence = userPresence.get(otherUser.id);
+      isOnline = presence?.online || false;
+    }
     
     return (
       <ChatListItem
         chat={item}
         currentUserId={currentUser?.id || ''}
         otherUser={otherUser}
+        isOnline={isOnline}
         onPress={() => handleChatPress(item.id)}
       />
     );
@@ -368,28 +425,30 @@ export default function ChatListScreen() {
       {/* App Bar */}
       <Appbar.Header>
         <Appbar.Content title="MessageAI" />
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={
-            <Appbar.Action
-              icon="dots-vertical"
-              onPress={() => setMenuVisible(true)}
-            />
-          }
-        >
-          <Menu.Item
-            onPress={handleEditProfile}
-            title="Edit Profile"
-            leadingIcon="account-edit"
-          />
-          <Menu.Item
-            onPress={handleSignOut}
-            title="Sign Out"
-            leadingIcon="logout"
-          />
-        </Menu>
+        <Appbar.Action
+          icon="dots-vertical"
+          onPress={() => setMenuVisible(true)}
+        />
       </Appbar.Header>
+
+      {/* Menu as separate component to fix state issues */}
+      <Menu
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        anchor={{ x: 1000, y: 60 }} // Position at top-right
+        anchorPosition="bottom"
+      >
+        <Menu.Item
+          onPress={handleEditProfile}
+          title="Edit Profile"
+          leadingIcon="account-edit"
+        />
+        <Menu.Item
+          onPress={handleSignOut}
+          title="Sign Out"
+          leadingIcon="logout"
+        />
+      </Menu>
 
       {/* Connection Banner */}
       <ConnectionBanner />
