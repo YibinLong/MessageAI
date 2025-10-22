@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, Stack, useFocusEffect, useNavigation } from 'expo-router';
 import { useAuthStore } from '../../../stores/authStore';
@@ -33,6 +33,51 @@ import { getUserById } from '../../../services/userService';
 import { Message, User, Chat } from '../../../types';
 import { listenToPresence, PresenceData } from '../../../services/presenceService';
 import { formatDistanceToNow } from 'date-fns';
+
+/**
+ * Custom Header Title Component
+ * 
+ * WHY: Navigation headers need proper multi-line support for title + subtitle
+ * WHAT: Renders title and optional subtitle with proper styling
+ * 
+ * This replaces the hacky newline approach which caused rendering issues
+ */
+interface HeaderTitleProps {
+  title: string;
+  subtitle?: string;
+}
+
+function HeaderTitle({ title, subtitle }: HeaderTitleProps) {
+  return (
+    <View style={headerStyles.container}>
+      <Text style={headerStyles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={headerStyles.subtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+const headerStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+});
 
 /**
  * Chat Screen Component
@@ -193,9 +238,10 @@ export default function ChatScreen() {
     }
 
     navigation.setOptions({
-      title,
-      // Note: headerSubtitle doesn't exist in expo-router, so we append to title
-      headerTitle: subtitle ? `${title}\n${subtitle}` : title,
+      // Use custom header component for proper title + subtitle rendering
+      // WHY: Avoids newline hack which causes rendering issues
+      // WHAT: Passes a React component that properly styles multi-line headers
+      headerTitle: () => <HeaderTitle title={title} subtitle={subtitle} />,
     });
   }, [chat, otherUser, otherUserPresence, navigation]);
 

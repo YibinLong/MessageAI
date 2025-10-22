@@ -14,7 +14,7 @@ import { Appbar, TextInput, Button, List, Avatar, Text, ActivityIndicator, Check
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { getAllUsers } from '../../services/userService';
-import { createGroupChat } from '../../services/chatService';
+import { createGroupChat, updateGroupPhoto } from '../../services/chatService';
 import { User } from '../../types';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImage } from '../../utils/imageUpload';
@@ -32,12 +32,10 @@ export default function CreateGroupScreen() {
   // State
   const [groupName, setGroupName] = useState('');
   const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
-  const [uploadedPhotoURL, setUploadedPhotoURL] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   /**
    * Load all users on mount
@@ -99,7 +97,7 @@ export default function CreateGroupScreen() {
    * Handle group photo selection
    * 
    * WHY: Groups can have custom photos
-   * WHAT: Opens image picker and uploads to Firebase Storage
+   * WHAT: Opens image picker and stores local URI (upload happens during group creation)
    */
   const handlePickPhoto = async () => {
     try {
@@ -121,24 +119,9 @@ export default function CreateGroupScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        console.log('[CreateGroup] Image selected');
+        console.log('[CreateGroup] Image selected:', result.assets[0].uri);
+        // Store local URI only - we'll upload after group is created with real ID
         setGroupPhotoUri(result.assets[0].uri);
-        
-        // Upload immediately
-        setUploadingPhoto(true);
-        try {
-          // Use temporary ID for upload path
-          const tempGroupId = `temp_${Date.now()}`;
-          const photoURL = await uploadImage(result.assets[0].uri, `groups/${tempGroupId}/photo.jpg`);
-          setUploadedPhotoURL(photoURL);
-          console.log('[CreateGroup] Photo uploaded:', photoURL);
-        } catch (uploadError) {
-          console.error('[CreateGroup] Photo upload failed:', uploadError);
-          Alert.alert('Upload Error', 'Failed to upload photo. You can try again later.');
-          setGroupPhotoUri(null);
-        } finally {
-          setUploadingPhoto(false);
-        }
       }
     } catch (error) {
       console.error('[CreateGroup] Image picker error:', error);
@@ -150,7 +133,7 @@ export default function CreateGroupScreen() {
    * Handle group creation
    * 
    * WHY: Create the group chat in Firestore
-   * WHAT: Validates input, creates group, navigates to it
+   * WHAT: Validates input, creates group with real UUID, uploads photo to correct path, navigates to it
    */
   const handleCreateGroup = async () => {
     if (!currentUser) {
@@ -178,15 +161,35 @@ export default function CreateGroupScreen() {
       const participants = Array.from(selectedUserIds);
       participants.push(currentUser.id);
 
-      // Create group chat
+      // Step 1: Create group chat WITHOUT photo first to get the real group UUID
       const group = await createGroupChat(
         groupName.trim(),
         participants,
-        currentUser.id,
-        uploadedPhotoURL || undefined
+        currentUser.id
       );
 
-      console.log('[CreateGroup] Group created:', group.id);
+      console.log('[CreateGroup] Group created with ID:', group.id);
+
+      // Step 2: If user selected a photo, upload it using the REAL group ID
+      if (groupPhotoUri) {
+        try {
+          console.log('[CreateGroup] Uploading group photo to correct path...');
+          const photoURL = await uploadImage(groupPhotoUri, `groups/${group.id}/photo.jpg`);
+          console.log('[CreateGroup] Photo uploaded:', photoURL);
+          
+          // Step 3: Update the group document with the photo URL
+          await updateGroupPhoto(group.id, photoURL);
+          console.log('[CreateGroup] Group photo updated in Firestore');
+        } catch (photoError) {
+          console.error('[CreateGroup] Photo upload failed:', photoError);
+          // Don't block group creation - just show a warning
+          Alert.alert(
+            'Photo Upload Failed',
+            'The group was created but the photo could not be uploaded. You can add it later.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
 
       // Navigate to the new group chat
       router.replace(`/(app)/chat/${group.id}`);
@@ -252,17 +255,12 @@ export default function CreateGroupScreen() {
       <ScrollView style={styles.content}>
         {/* Group Photo Section */}
         <View style={styles.photoSection}>
-          <TouchableOpacity onPress={handlePickPhoto} disabled={uploadingPhoto}>
+          <TouchableOpacity onPress={handlePickPhoto} disabled={creating}>
             <View style={styles.photoContainer}>
               {groupPhotoUri ? (
                 <Image source={{ uri: groupPhotoUri }} style={styles.groupPhoto} />
               ) : (
                 <Avatar.Icon size={100} icon="camera" style={styles.photoPlaceholder} />
-              )}
-              {uploadingPhoto && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="small" color="#fff" />
-                </View>
               )}
             </View>
           </TouchableOpacity>
@@ -356,17 +354,6 @@ const styles = StyleSheet.create({
   },
   photoPlaceholder: {
     backgroundColor: '#E0E0E0',
-  },
-  uploadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   photoHint: {
     marginTop: 8,
