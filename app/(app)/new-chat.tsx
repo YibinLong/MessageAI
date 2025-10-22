@@ -190,6 +190,16 @@ export default function NewChatScreen() {
     );
   };
 
+  /**
+   * Handle create group button press
+   * 
+   * WHY: Navigate to group creation screen
+   * WHAT: Opens create-group screen
+   */
+  const handleCreateGroup = () => {
+    router.push('/(app)/create-group');
+  };
+
   return (
     <View style={styles.container}>
       {/* App Bar */}
@@ -200,6 +210,22 @@ export default function NewChatScreen() {
 
       {/* Connection Banner */}
       <ConnectionBanner />
+
+      {/* Create Group Button */}
+      <List.Item
+        title="Create Group"
+        description="Create a group with multiple participants"
+        onPress={handleCreateGroup}
+        disabled={creating}
+        left={() => (
+          <View style={styles.avatarContainer}>
+            <Avatar.Icon size={50} icon="account-multiple-plus" style={styles.groupIcon} />
+          </View>
+        )}
+        titleStyle={styles.groupTitle}
+        descriptionStyle={styles.userEmail}
+        style={styles.groupListItem}
+      />
 
       {/* Search Bar */}
       <Searchbar
@@ -244,6 +270,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  groupListItem: {
+    backgroundColor: '#F5F5F5',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  groupIcon: {
+    backgroundColor: '#25D366',
+  },
+  groupTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#25D366',
   },
   searchBar: {
     margin: 16,
