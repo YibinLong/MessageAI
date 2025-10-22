@@ -104,8 +104,12 @@ export async function compressImage(uri: string): Promise<string> {
       console.log('[ImageCompression] Compression attempt', attempts, 'with quality', quality);
       
       // Compress image with current quality setting
+      // For first attempt, use original URI. For subsequent attempts, use the previously compressed URI
+      // WHY: This allows each compression to build on the previous result, making compression more efficient
+      const sourceUri = attempts === 1 ? uri : compressedUri;
+      
       const result = await ImageManipulator.manipulateAsync(
-        uri,
+        sourceUri,
         resizeAction, // Apply resize on first attempt, empty array thereafter
         {
           compress: quality,
