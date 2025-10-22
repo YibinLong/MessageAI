@@ -1,50 +1,39 @@
-# 📚 MessageAI Documentation
+# Documentation Directory
 
-This folder contains detailed documentation for the MessageAI project.
+This folder contains all project documentation organized by category.
 
-## 📄 Documentation Files
+## 📁 Folder Structure
 
-### Setup & Configuration
-- **[SETUP_COMPLETE.md](SETUP_COMPLETE.md)** - Comprehensive Phase 1 setup guide
-  - Firebase setup instructions
-  - Project configuration
-  - Testing procedures
-  - Troubleshooting common issues
+### `/testing`
+Contains all testing guides and procedures:
+- `TESTING_GUIDE.md` - Main testing guide for the entire project
+- `EPIC_2.1_TESTING_GUIDE.md` - Testing guide for Epic 2.1 (Authentication & User Profiles)
+- `EPIC_2.2_TESTING_GUIDE.md` - Testing guide for Epic 2.2 (Real-time Messaging)
+- `EPIC_2.3_TESTING_GUIDE.md` - Testing guide for Epic 2.3 (Presence & Typing Indicators)
 
-### Technical Guides
-- **[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)** - Detailed technical implementation guide
-  - Architecture overview
-  - Code structure
-  - Best practices
-  - Development workflow
+### `/bug-fixes`
+Documentation for bug fixes and issue resolutions:
+- `BUG_FIXES_SUMMARY.md` - Summary of all bug fixes
+- `KEYBOARD_FIX.md` - Initial keyboard-related bug fixes
+- `KEYBOARD_FIX_FINAL.md` - Final keyboard behavior fixes
+- `OFFLINE_MESSAGING_FIXES.md` - Offline messaging bug fixes
+- `SQLITE_ERRORS_FINAL_FIX.md` - SQLite error resolutions
 
-## 🔗 Main Documentation (Root Folder)
+### `/implementation`
+Implementation summaries and guides:
+- `IMPLEMENTATION_GUIDE.md` - General implementation guide
+- `EPIC_2.2_COMPLETE.md` - Epic 2.2 completion summary
+- `EPIC_2.3_IMPLEMENTATION_SUMMARY.md` - Epic 2.3 implementation details
 
-These files are in the project root for easy access:
+### `/project-info`
+General project information and rubrics:
+- `MessageAI_Rubric.md` - Project rubric and evaluation criteria
+- `DOCS_README.md` - Previous docs readme (for reference)
 
-- **[../README.md](../README.md)** - Main project README with quick start guide
-- **[../PRD.md](../PRD.md)** - Product Requirements Document
-- **[../TASK_LIST.md](../TASK_LIST.md)** - Complete task breakdown for all development phases
+## 📄 Root Level Documentation
 
-## 📁 Project Organization
-
-```
-MessageAI/
-├── docs/              # 📚 Detailed documentation (you are here)
-├── app/               # 📱 Expo Router screens
-├── components/        # 🧩 Reusable UI components
-├── services/          # ⚙️ Firebase, SQLite, API services
-├── types/             # 📝 TypeScript type definitions
-├── utils/             # 🛠️ Helper functions
-├── constants/         # 🔧 App constants
-├── functions/         # ☁️ Firebase Cloud Functions
-└── assets/            # 🖼️ Images, fonts, etc.
-```
-
-## 🚀 Quick Links
-
-- **Getting Started:** [../README.md](../README.md)
-- **Feature Specs:** [../PRD.md](../PRD.md)
-- **Task Tracking:** [../TASK_LIST.md](../TASK_LIST.md)
-- **Setup Help:** [SETUP_COMPLETE.md](SETUP_COMPLETE.md)
+Important docs kept at the project root:
+- `README.md` - Main project readme with setup instructions
+- `PRD.md` - Product Requirements Document
+- `TASK_LIST.md` - Project task list and tracking
 
