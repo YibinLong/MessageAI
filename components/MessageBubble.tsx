@@ -14,10 +14,10 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Message } from '../types';
+import { Message, User } from '../types';
 import { Timestamp } from 'firebase/firestore';
 
 /**
@@ -26,6 +26,9 @@ import { Timestamp } from 'firebase/firestore';
 interface MessageBubbleProps {
   message: Message;
   isSent: boolean; // True if message was sent by current user
+  isGroupChat?: boolean; // True if this is a group chat
+  senderUser?: User; // User object of message sender (for group chats)
+  readByCount?: number; // Number of users who read this message (for group sent messages)
 }
 
 /**
@@ -76,8 +79,8 @@ function formatMessageTime(timestamp: Timestamp): string {
  * WHAT:
  * - Clock: sending (message not yet uploaded)
  * - Single checkmark: sent (uploaded to Firestore)
- * - Double checkmark: delivered (recipient received) - PLACEHOLDER for Epic 2.4
- * - Blue double checkmark: read (recipient opened chat) - PLACEHOLDER for Epic 2.4
+ * - Double checkmark: delivered (recipient received)
+ * - Blue double checkmark: read (recipient opened chat)
  * 
  * @param status - Message status
  * @returns Icon name and color
@@ -98,17 +101,49 @@ function getStatusIcon(status: string): { name: keyof typeof Ionicons.glyphMap; 
 }
 
 /**
+ * Get sender initials for avatar
+ * 
+ * WHY: Show initials when no profile photo available
+ * WHAT: Takes first letter of each word in name
+ */
+function getSenderInitials(user: User | undefined): string {
+  if (!user?.displayName) return '??';
+  return user.displayName
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+/**
  * Message Bubble Component
  * 
  * WHAT: Displays a single message with WhatsApp-style design
  * WHY: Users need clear, familiar message UI
  */
-export function MessageBubble({ message, isSent }: MessageBubbleProps) {
+export function MessageBubble({ message, isSent, isGroupChat, senderUser, readByCount }: MessageBubbleProps) {
   const statusIcon = getStatusIcon(message.status);
 
   return (
     <View style={[styles.container, isSent ? styles.sentContainer : styles.receivedContainer]}>
+      {/* Show avatar for received messages in group chats */}
+      {isGroupChat && !isSent && (
+        <View style={styles.avatarContainer}>
+          {senderUser?.photoURL ? (
+            <Avatar.Image size={32} source={{ uri: senderUser.photoURL }} />
+          ) : (
+            <Avatar.Text size={32} label={getSenderInitials(senderUser)} />
+          )}
+        </View>
+      )}
+      
       <View style={[styles.bubble, isSent ? styles.sentBubble : styles.receivedBubble]}>
+        {/* Show sender name for received messages in group chats */}
+        {isGroupChat && !isSent && senderUser && (
+          <Text style={styles.senderName}>{senderUser.displayName}</Text>
+        )}
+        
         {/* Message text */}
         <Text style={[styles.text, isSent ? styles.sentText : styles.receivedText]}>
           {message.text}
@@ -120,14 +155,24 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
             {formatMessageTime(message.timestamp)}
           </Text>
 
-          {/* Status icon (only show for sent messages) */}
+          {/* Status icon or read count */}
           {isSent && (
-            <Ionicons
-              name={statusIcon.name}
-              size={16}
-              color={statusIcon.color}
-              style={styles.statusIcon}
-            />
+            <>
+              {isGroupChat && readByCount !== undefined ? (
+                // Show "Read by X" for group messages
+                readByCount > 0 && (
+                  <Text style={styles.readByText}>Read by {readByCount}</Text>
+                )
+              ) : (
+                // Show status icon for 1:1 messages
+                <Ionicons
+                  name={statusIcon.name}
+                  size={16}
+                  color={statusIcon.color}
+                  style={styles.statusIcon}
+                />
+              )}
+            </>
           )}
         </View>
       </View>
@@ -137,14 +182,20 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
     marginVertical: 4,
     marginHorizontal: 8,
+    alignItems: 'flex-end',
   },
   sentContainer: {
-    alignItems: 'flex-end', // Align sent messages to right
+    justifyContent: 'flex-end', // Align sent messages to right
   },
   receivedContainer: {
-    alignItems: 'flex-start', // Align received messages to left
+    justifyContent: 'flex-start', // Align received messages to left
+  },
+  avatarContainer: {
+    marginRight: 8,
+    marginBottom: 4,
   },
   bubble: {
     maxWidth: '75%', // Don't let bubbles take full width
@@ -164,6 +215,12 @@ const styles = StyleSheet.create({
   receivedBubble: {
     backgroundColor: '#FFFFFF', // White
     borderBottomLeftRadius: 4, // Sharp corner on bottom-left (WhatsApp style)
+  },
+  senderName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#075E54', // WhatsApp teal
+    marginBottom: 4,
   },
   text: {
     fontSize: 16,
@@ -190,6 +247,11 @@ const styles = StyleSheet.create({
   },
   receivedTimestamp: {
     color: '#999',
+  },
+  readByText: {
+    fontSize: 11,
+    color: '#4FC3F7', // Blue, like read receipts
+    marginLeft: 4,
   },
   statusIcon: {
     marginLeft: 2,
