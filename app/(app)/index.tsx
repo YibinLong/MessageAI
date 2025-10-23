@@ -116,14 +116,22 @@ export default function ChatListScreen() {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Store unsubscribe function to clean up on unmount
+    let unsubscribe: (() => void) | undefined;
+
     // Import agentService dynamically to avoid circular deps
     import('../../services/agentService').then(({ listenToSuggestedActions }) => {
-      const unsubscribe = listenToSuggestedActions(currentUser.id, (actions) => {
+      unsubscribe = listenToSuggestedActions(currentUser.id, (actions) => {
         setPendingSuggestionsCount(actions.length);
       });
-
-      return () => unsubscribe();
     });
+
+    // Return cleanup function that calls unsubscribe if it exists
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [currentUser]);
 
   /**

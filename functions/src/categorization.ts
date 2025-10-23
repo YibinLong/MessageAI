@@ -130,8 +130,8 @@ Respond in JSON format:
         if (chatDoc.exists && chatDoc.data()?.lastMessage) {
           const lastMessageData = chatDoc.data()?.lastMessage;
           
-          // Check if lastMessage has an ID field to compare
-          // If it matches this message, update the AI data
+          // Only update if this message is still the current lastMessage
+          // WHY: Prevents race condition where older message AI data overwrites newer lastMessage
           if (lastMessageData.id === messageId) {
             // This is the lastMessage - update with AI data
             await chatDoc.ref.update({
@@ -142,25 +142,12 @@ Respond in JSON format:
             });
             functions.logger.info('Chat lastMessage updated with AI data', { chatId, messageId });
           } else {
-            // This is NOT the lastMessage anymore
-            // BUT: We should still try to update it if we can find the message in Firestore
-            // and check if it matches based on timestamp
-            functions.logger.info('Message is not the current lastMessage, but will update AI fields anyway', { 
+            // This message is no longer the lastMessage - skip updating
+            functions.logger.info('Message is not the current lastMessage, skipping AI data update', { 
               chatId, 
               messageId,
               currentLastMessageId: lastMessageData.id || 'unknown',
             });
-            
-            // Still update if the text matches (fallback for messages without ID in lastMessage)
-            if (lastMessageData.text === messageData.text) {
-              await chatDoc.ref.update({
-                'lastMessage.aiCategory': analysis.category,
-                'lastMessage.aiSentiment': analysis.sentiment,
-                'lastMessage.aiUrgency': analysis.urgency,
-                'lastMessage.aiCollaborationScore': analysis.collaborationScore,
-              });
-              functions.logger.info('Updated lastMessage AI data by text match', { chatId, messageId });
-            }
           }
         } else {
           // lastMessage doesn't exist yet
