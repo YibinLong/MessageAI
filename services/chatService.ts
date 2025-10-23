@@ -168,7 +168,8 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 export async function updateChatLastMessage(
   chatId: string,
   lastMessageText: string,
-  senderId: string
+  senderId: string,
+  messageId?: string
 ): Promise<void> {
   try {
     console.log('[ChatService] Updating last message for chat:', chatId);
@@ -188,6 +189,7 @@ export async function updateChatLastMessage(
     // Build update object
     const updateData: any = {
       lastMessage: {
+        id: messageId || null,
         text: lastMessageText,
         senderId,
         timestamp: serverTimestamp(),
