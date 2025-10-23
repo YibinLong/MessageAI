@@ -127,10 +127,40 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
     return chat.lastMessage.text;
   };
 
+  /**
+   * Get category badge color
+   * 
+   * WHY: Visual indication of message category for quick scanning
+   * WHAT: Returns color based on AI category
+   */
+  const getCategoryColor = (category?: string): string => {
+    switch (category) {
+      case 'fan': return '#2196F3'; // Blue
+      case 'business': return '#4CAF50'; // Green
+      case 'spam': return '#F44336'; // Red
+      case 'urgent': return '#FF9800'; // Orange
+      default: return '#999'; // Gray
+    }
+  };
+
+  /**
+   * Get category label
+   * 
+   * WHY: Show short text label for category
+   * WHAT: Returns uppercase category name
+   */
+  const getCategoryLabel = (category?: string): string => {
+    if (!category) return '';
+    return category.toUpperCase();
+  };
+
   const displayName = getDisplayName();
   const avatarSource = getAvatarSource();
   const lastMessagePreview = getLastMessagePreview();
   const hasUnread = (chat.unreadCount || 0) > 0;
+  const aiCategory = (chat.lastMessage as any)?.aiCategory;
+  const collaborationScore = (chat.lastMessage as any)?.aiCollaborationScore || 0;
+  const isHighPriority = collaborationScore > 7;
 
   return (
     <List.Item
@@ -159,6 +189,21 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
             </Text>
           )}
           
+          {/* Category Badge */}
+          {aiCategory && (
+            <Badge 
+              size={18} 
+              style={[styles.categoryBadge, { backgroundColor: getCategoryColor(aiCategory) }]}
+            >
+              {getCategoryLabel(aiCategory).slice(0, 3)}
+            </Badge>
+          )}
+
+          {/* High Priority Star */}
+          {isHighPriority && (
+            <Text style={styles.priorityStar}>⭐</Text>
+          )}
+          
           {/* Unread Badge */}
           {hasUnread && (
             <Badge size={20} style={styles.badge}>
@@ -167,7 +212,7 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
           )}
         </View>
       )}
-      titleStyle={styles.title}
+      titleStyle={[styles.title, isHighPriority && styles.priorityTitle]}
       descriptionStyle={styles.description}
       descriptionNumberOfLines={1}
       style={styles.listItem}
@@ -201,6 +246,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
   },
+  priorityTitle: {
+    fontWeight: '700', // Bold for high priority chats
+    color: '#000',
+  },
   description: {
     fontSize: 14,
     color: '#666',
@@ -214,6 +263,15 @@ const styles = StyleSheet.create({
   timestamp: {
     color: '#999',
     fontSize: 12,
+  },
+  categoryBadge: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#fff',
+    paddingHorizontal: 4,
+  },
+  priorityStar: {
+    fontSize: 16,
   },
   badge: {
     backgroundColor: '#25D366', // WhatsApp green
