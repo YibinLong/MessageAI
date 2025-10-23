@@ -143,10 +143,10 @@ export interface FAQ {
 
 /**
  * Agent Settings
- * Stored in Firestore at /users/{userId}/agentSettings
+ * Stored in Firestore at /users/{userId}/agentSettings/config
  */
 export interface AgentSettings {
-  enabled: boolean;              // Whether agent is enabled
+  agentEnabled: boolean;         // Whether agent is enabled
   autoRespondFans: boolean;      // Auto-respond to fan messages
   autoRespondFAQs: boolean;      // Auto-respond to FAQ matches
   autoArchiveSpam: boolean;      // Auto-archive spam messages
@@ -176,5 +176,37 @@ export interface MessageEmbedding {
   textSnippet: string;           // First 100 chars of message for reference
   timestamp: Timestamp;
   chatId: string;                // Chat the message belongs to
+}
+
+/**
+ * Suggested Action (from AI Agent)
+ * Stored in Firestore at /users/{userId}/suggestedActions/{actionId}
+ */
+export interface SuggestedAction {
+  id: string;                    // Unique action ID
+  type: 'respond' | 'archive' | 'flag';  // Type of suggested action
+  messageId: string;             // Message that triggered suggestion
+  chatId: string;                // Chat the message belongs to
+  senderId: string;              // User who sent the message
+  senderName?: string;           // Sender's display name
+  senderPhotoURL?: string;       // Sender's profile photo
+  messageText?: string;          // Original message text (for context)
+  messageTimestamp?: Timestamp;  // When the original message was sent
+  suggestedText?: string;        // Suggested response text (for 'respond' type)
+  reasoning: string;             // AI's reasoning for this suggestion
+  status: 'pending' | 'approved' | 'rejected';  // Action status
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * AI Chat Message
+ * Stored in Firestore at /users/{userId}/aiChatHistory/{messageId}
+ */
+export interface AIChatMessage {
+  id: string;                    // Unique message ID
+  role: 'user' | 'assistant';    // Who sent the message
+  content: string;               // Message text
+  timestamp: Timestamp;
 }
 
