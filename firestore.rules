@@ -68,6 +68,16 @@ service cloud.firestore {
       match /agentSettings/{settingId} {
         allow read, write: if isAuthenticated() && isOwner(userId);
       }
+      
+      // Suggested actions (for AI agent)
+      match /suggestedActions/{actionId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // AI chat history (for AI assistant)
+      match /aiChatHistory/{messageId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
     }
     
     /**

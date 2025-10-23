@@ -17,6 +17,9 @@ import { onMessageCreated } from './notifications';
 import { categorizeMessage, recategorizeMessage } from './categorization';
 import { draftResponse } from './draftResponse';
 import { detectFAQ } from './faqDetection';
+import { runAgent } from './agent';
+import { sendAIChatMessage } from './aiChat';
+import { approveSuggestedAction, rejectSuggestedAction } from './suggestedActions';
 
 /**
  * Initialize Firebase Admin SDK
@@ -45,6 +48,43 @@ export { detectFAQ };
  * Export AI response drafting functions
  */
 export { draftResponse };
+
+/**
+ * Export AI Agent functions (Epic 3.7)
+ */
+export { runAgent };
+
+/**
+ * Export AI Chat functions (Epic 3.8)
+ */
+export { sendAIChatMessage };
+
+/**
+ * Export suggested action management functions
+ */
+export const approveSuggestion = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+  }
+  const { userId, actionId } = data;
+  if (context.auth.uid !== userId) {
+    throw new functions.https.HttpsError('permission-denied', 'Can only approve your own actions');
+  }
+  await approveSuggestedAction(userId, actionId);
+  return { success: true };
+});
+
+export const rejectSuggestion = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+  }
+  const { userId, actionId } = data;
+  if (context.auth.uid !== userId) {
+    throw new functions.https.HttpsError('permission-denied', 'Can only reject your own actions');
+  }
+  await rejectSuggestedAction(userId, actionId);
+  return { success: true };
+});
 
 /**
  * Test function to verify Cloud Functions are working
