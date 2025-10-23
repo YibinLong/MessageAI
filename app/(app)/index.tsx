@@ -14,8 +14,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView } from 'react-native';
-import { Appbar, FAB, Text, ActivityIndicator, Menu, Chip } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView, Modal, TouchableOpacity, Pressable } from 'react-native';
+import { Appbar, FAB, Text, ActivityIndicator, Chip, Divider } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { signOut } from '../../services/auth';
@@ -261,6 +262,22 @@ export default function ChatListScreen() {
   };
 
   /**
+   * Handle category filter change
+   * 
+   * WHY: When user selects "All" categories, also reset sentiment filter
+   * WHAT: Sets category and resets sentiment to 'all' if category is 'all'
+   * 
+   * @param category - Category to filter by
+   */
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    // Reset sentiment filter when "All" is selected for better UX
+    if (category === 'all') {
+      setSelectedSentiment('all');
+    }
+  };
+
+  /**
    * Handle chat item press
    * 
    * WHY: Navigate to chat screen when user taps a chat
@@ -458,28 +475,63 @@ export default function ChatListScreen() {
       {/* App Bar */}
       <Appbar.Header>
         <Appbar.Content title="MessageAI" />
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={
-            <Appbar.Action
-              icon="dots-vertical"
-              onPress={() => setMenuVisible(true)}
-            />
-          }
-        >
-          <Menu.Item
-            onPress={handleEditProfile}
-            title="Edit Profile"
-            leadingIcon="account-edit"
-          />
-          <Menu.Item
-            onPress={handleSignOut}
-            title="Sign Out"
-            leadingIcon="logout"
-          />
-        </Menu>
+        <Appbar.Action
+          icon="dots-vertical"
+          onPress={() => setMenuVisible(true)}
+        />
       </Appbar.Header>
+
+      {/* Custom Menu Modal (replaces buggy Paper Menu) */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setMenuVisible(false)}
+        >
+          <View style={styles.menuContainer}>
+            {/* Edit Profile */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleEditProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person-outline" size={22} color="#333" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Edit Profile</Text>
+            </TouchableOpacity>
+
+            <Divider style={styles.menuDivider} />
+
+            {/* FAQ Settings */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                router.push('/(app)/faq-settings');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="help-circle-outline" size={22} color="#333" style={styles.menuIcon} />
+              <Text style={styles.menuText}>FAQ Settings</Text>
+            </TouchableOpacity>
+
+            <Divider style={styles.menuDivider} />
+
+            {/* Sign Out */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={22} color="#F44336" style={styles.menuIcon} />
+              <Text style={[styles.menuText, styles.menuTextDanger]}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Connection Banner */}
       <ConnectionBanner />
@@ -492,16 +544,18 @@ export default function ChatListScreen() {
           style={styles.filterContainer}
           contentContainerStyle={styles.filterContent}
         >
+          {/* Category Filters */}
+          <Text variant="labelSmall" style={styles.filterLabel}>Category:</Text>
           <Chip
             selected={selectedCategory === 'all'}
-            onPress={() => setSelectedCategory('all')}
+            onPress={() => handleCategoryChange('all')}
             style={styles.filterChip}
           >
             All
           </Chip>
           <Chip
             selected={selectedCategory === 'priority'}
-            onPress={() => setSelectedCategory('priority')}
+            onPress={() => handleCategoryChange('priority')}
             style={styles.filterChip}
             icon="star"
           >
@@ -509,31 +563,67 @@ export default function ChatListScreen() {
           </Chip>
           <Chip
             selected={selectedCategory === 'fan'}
-            onPress={() => setSelectedCategory('fan')}
+            onPress={() => handleCategoryChange('fan')}
             style={styles.filterChip}
           >
             Fan
           </Chip>
           <Chip
             selected={selectedCategory === 'business'}
-            onPress={() => setSelectedCategory('business')}
+            onPress={() => handleCategoryChange('business')}
             style={styles.filterChip}
           >
             Business
           </Chip>
           <Chip
             selected={selectedCategory === 'spam'}
-            onPress={() => setSelectedCategory('spam')}
+            onPress={() => handleCategoryChange('spam')}
             style={styles.filterChip}
           >
             Spam
           </Chip>
           <Chip
             selected={selectedCategory === 'urgent'}
-            onPress={() => setSelectedCategory('urgent')}
+            onPress={() => handleCategoryChange('urgent')}
             style={styles.filterChip}
           >
             Urgent
+          </Chip>
+          
+          {/* Sentiment Filters */}
+          <View style={styles.filterDivider} />
+          
+          <Text variant="labelSmall" style={styles.filterLabel}>Sentiment:</Text>
+          <Chip
+            selected={selectedSentiment === 'all'}
+            onPress={() => setSelectedSentiment('all')}
+            style={styles.filterChip}
+          >
+            All
+          </Chip>
+          <Chip
+            selected={selectedSentiment === 'positive'}
+            onPress={() => setSelectedSentiment('positive')}
+            style={styles.filterChip}
+            icon="emoticon-happy-outline"
+          >
+            Positive
+          </Chip>
+          <Chip
+            selected={selectedSentiment === 'neutral'}
+            onPress={() => setSelectedSentiment('neutral')}
+            style={styles.filterChip}
+            icon="emoticon-neutral-outline"
+          >
+            Neutral
+          </Chip>
+          <Chip
+            selected={selectedSentiment === 'negative'}
+            onPress={() => setSelectedSentiment('negative')}
+            style={styles.filterChip}
+            icon="emoticon-sad-outline"
+          >
+            Negative
           </Chip>
         </ScrollView>
       )}
@@ -591,8 +681,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
+  filterLabel: {
+    alignSelf: 'center',
+    color: '#666',
+    marginHorizontal: 8,
+    fontWeight: '600',
+  },
   filterChip: {
     marginHorizontal: 4,
+  },
+  filterDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#ddd',
+    marginHorizontal: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -627,5 +729,45 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 16,
     backgroundColor: '#25D366',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 56, // Below app bar
+    paddingRight: 8,
+  },
+  menuContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    minWidth: 200,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  menuIcon: {
+    marginRight: 16,
+    width: 24,
+  },
+  menuText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  menuTextDanger: {
+    color: '#F44336',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
   },
 });
