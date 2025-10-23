@@ -26,6 +26,8 @@ import {
 import { db } from './firebase';
 import { upsertChat, getAllChats as getSQLiteChats } from './sqlite';
 import { Chat, SQLiteChat } from '../types';
+import { firestoreChatDataToChat } from '../utils/firestoreConverters';
+import { timestampToMillis } from '../utils/dateUtils';
 import uuid from 'react-native-uuid';
 
 /**
@@ -67,29 +69,16 @@ function generateChatId(userId1: string, userId2: string): string {
  */
 export async function createOrGetChat(userId1: string, userId2: string): Promise<Chat> {
   try {
-    console.log('[ChatService] Creating or getting chat between:', userId1, userId2);
-    
-    // Generate deterministic chat ID
     const chatId = generateChatId(userId1, userId2);
-    console.log('[ChatService] Chat ID:', chatId);
-    
-    // Check if chat already exists in Firestore
     const chatRef = doc(db, 'chats', chatId);
     const chatSnap = await getDoc(chatRef);
     
     if (chatSnap.exists()) {
-      // Chat exists, return it
-      console.log('[ChatService] Chat already exists');
       const chatData = chatSnap.data() as Chat;
-      
-      // Cache in SQLite
       await cacheChatInSQLite(chatData);
-      
       return chatData;
     }
     
-    // Chat doesn't exist, create new one
-    console.log('[ChatService] Creating new chat');
     const newChat: Chat = {
       id: chatId,
       type: '1:1',
@@ -99,18 +88,13 @@ export async function createOrGetChat(userId1: string, userId2: string): Promise
       createdBy: userId1,
     };
     
-    // Write to Firestore
     await setDoc(chatRef, {
       ...newChat,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
     });
     
-    console.log('[ChatService] Chat created successfully');
-    
-    // Cache in SQLite
     await cacheChatInSQLite(newChat);
-    
     return newChat;
   } catch (error) {
     console.error('[ChatService] Failed to create/get chat:', error);
@@ -129,21 +113,15 @@ export async function createOrGetChat(userId1: string, userId2: string): Promise
  */
 export async function getChatById(chatId: string): Promise<Chat | null> {
   try {
-    console.log('[ChatService] Getting chat by ID:', chatId);
-    
     const chatRef = doc(db, 'chats', chatId);
     const chatSnap = await getDoc(chatRef);
     
     if (!chatSnap.exists()) {
-      console.log('[ChatService] Chat not found');
       return null;
     }
     
     const chatData = chatSnap.data() as Chat;
-    
-    // Cache in SQLite
     await cacheChatInSQLite(chatData);
-    
     return chatData;
   } catch (error) {
     console.error('[ChatService] Failed to get chat:', error);
@@ -172,21 +150,16 @@ export async function updateChatLastMessage(
   messageId?: string
 ): Promise<void> {
   try {
-    console.log('[ChatService] Updating last message for chat:', chatId);
-    
     const chatRef = doc(db, 'chats', chatId);
-    
-    // Get chat to find all participants
     const chatSnap = await getDoc(chatRef);
+    
     if (!chatSnap.exists()) {
       console.error('[ChatService] Chat not found:', chatId);
       return;
     }
     
-    const chatData = chatSnap.data();
-    const participants = chatData.participants || [];
+    const participants = chatSnap.data().participants || [];
     
-    // Build update object
     const updateData: any = {
       lastMessage: {
         id: messageId || null,
@@ -197,18 +170,13 @@ export async function updateChatLastMessage(
       updatedAt: serverTimestamp(),
     };
     
-    // Increment unread count for all participants EXCEPT the sender
-    // WHY: Sender has read their own message, others haven't
     participants.forEach((participantId: string) => {
       if (participantId !== senderId) {
         updateData[`unreadCounts.${participantId}`] = increment(1);
       }
     });
     
-    // Update in Firestore
     await updateDoc(chatRef, updateData);
-    
-    console.log('[ChatService] Last message and unread counts updated successfully');
   } catch (error) {
     console.error('[ChatService] Failed to update last message:', error);
     throw error;
@@ -225,25 +193,21 @@ export async function updateChatLastMessage(
  */
 async function cacheChatInSQLite(chat: Chat): Promise<void> {
   try {
-    // Convert Firestore Timestamp to Unix milliseconds for SQLite
     const sqliteChat: SQLiteChat = {
       id: chat.id,
       type: chat.type,
-      participants: JSON.stringify(chat.participants), // SQLite doesn't support arrays, so we stringify
+      participants: JSON.stringify(chat.participants),
       name: chat.name,
       photoURL: chat.photoURL,
       lastMessage: chat.lastMessage ? JSON.stringify(chat.lastMessage) : undefined,
-      updatedAt: chat.updatedAt instanceof Timestamp ? chat.updatedAt.toMillis() : Date.now(),
-      createdAt: chat.createdAt instanceof Timestamp ? chat.createdAt.toMillis() : Date.now(),
+      updatedAt: timestampToMillis(chat.updatedAt),
+      createdAt: timestampToMillis(chat.createdAt),
       unreadCount: chat.unreadCount || 0,
     };
     
     await upsertChat(sqliteChat);
-    console.log('[ChatService] Chat cached in SQLite');
   } catch (error) {
     console.warn('[ChatService] Failed to cache chat in SQLite:', error);
-    // Don't throw - caching failure shouldn't break the chat creation
-    // App will work with Firestore-only mode
   }
 }
 
@@ -266,28 +230,20 @@ export async function createGroupChat(
   photoURL?: string
 ): Promise<Chat> {
   try {
-    console.log('[ChatService] Creating group chat:', name);
-    
-    // Generate unique group ID using UUID
     const groupId = uuid.v4() as string;
-    console.log('[ChatService] Group ID:', groupId);
     
-    // Create group chat object
-    // WHY: We build this object conditionally to avoid setting photoURL to undefined
-    // WHAT: Only include photoURL if it has a value (Firebase doesn't allow undefined)
     const newChat: Chat = {
       id: groupId,
       type: 'group',
       name,
-      ...(photoURL && { photoURL }), // Only include photoURL if it exists
+      ...(photoURL && { photoURL }),
       participants,
-      admins: [createdBy], // Creator is the admin
+      admins: [createdBy],
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
       createdBy,
     };
     
-    // Write to Firestore
     const chatRef = doc(db, 'chats', groupId);
     await setDoc(chatRef, {
       ...newChat,
@@ -295,11 +251,7 @@ export async function createGroupChat(
       createdAt: serverTimestamp(),
     });
     
-    console.log('[ChatService] Group chat created successfully');
-    
-    // Cache in SQLite
     await cacheChatInSQLite(newChat);
-    
     return newChat;
   } catch (error) {
     console.error('[ChatService] Failed to create group chat:', error);
@@ -323,15 +275,11 @@ export async function updateGroupPhoto(
   photoURL: string
 ): Promise<void> {
   try {
-    console.log('[ChatService] Updating group photo:', groupId);
-    
     const chatRef = doc(db, 'chats', groupId);
     await updateDoc(chatRef, {
       photoURL,
       updatedAt: serverTimestamp(),
     });
-    
-    console.log('[ChatService] Group photo updated successfully');
   } catch (error) {
     console.error('[ChatService] Failed to update group photo:', error);
     throw error;
@@ -354,21 +302,15 @@ export async function updateGroupPhoto(
  */
 export async function findUserByEmail(email: string): Promise<string | null> {
   try {
-    console.log('[ChatService] Finding user by email:', email);
-    
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', email.toLowerCase().trim()));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-      console.log('[ChatService] No user found with email:', email);
       return null;
     }
     
-    // Return the first matching user's ID
-    const userId = snapshot.docs[0].id;
-    console.log('[ChatService] Found user:', userId);
-    return userId;
+    return snapshot.docs[0].id;
   } catch (error) {
     console.error('[ChatService] Failed to find user by email:', error);
     throw error;
@@ -386,8 +328,6 @@ export async function findUserByEmail(email: string): Promise<string | null> {
  */
 export async function getUserChats(userId: string): Promise<Chat[]> {
   try {
-    console.log('[ChatService] Getting chats for user:', userId);
-    
     const chatsRef = collection(db, 'chats');
     const q = query(
       chatsRef,
@@ -396,32 +336,10 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     );
     
     const snapshot = await getDocs(q);
+    const chats: Chat[] = snapshot.docs.map((doc) => 
+      firestoreChatDataToChat(doc.data(), doc.id, userId)
+    );
     
-    const chats: Chat[] = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      // Extract this user's unread count from the unreadCounts map
-      const unreadCounts = data.unreadCounts || {};
-      const unreadCount = unreadCounts[userId] || 0;
-      
-      return {
-        id: doc.id,
-        type: data.type,
-        participants: data.participants,
-        name: data.name,
-        photoURL: data.photoURL,
-        admins: data.admins,
-        lastMessage: data.lastMessage,
-        updatedAt: data.updatedAt as Timestamp,
-        createdBy: data.createdBy,
-        createdAt: data.createdAt as Timestamp,
-        unreadCount, // Current user's unread count only
-        unreadCounts: data.unreadCounts, // Full map for Firestore sync
-      } as Chat;
-    });
-    
-    console.log(`[ChatService] Retrieved ${chats.length} chats`);
-    
-    // Cache all chats in SQLite
     for (const chat of chats) {
       await cacheChatInSQLite(chat);
     }
@@ -447,8 +365,6 @@ export function listenToUserChats(
   userId: string,
   callback: (chats: Chat[]) => void
 ): () => void {
-  console.log('[ChatService] Setting up real-time listener for user chats:', userId);
-  
   const chatsRef = collection(db, 'chats');
   const q = query(
     chatsRef,
@@ -456,40 +372,17 @@ export function listenToUserChats(
     orderBy('updatedAt', 'desc')
   );
   
-  // Set up real-time listener
   const unsubscribe = onSnapshot(
     q,
     async (snapshot) => {
-      console.log(`[ChatService] Received ${snapshot.docs.length} chats from listener`);
+      const chats: Chat[] = snapshot.docs.map((doc) => 
+        firestoreChatDataToChat(doc.data(), doc.id, userId)
+      );
       
-      const chats: Chat[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        // Extract this user's unread count from the unreadCounts map
-        const unreadCounts = data.unreadCounts || {};
-        const unreadCount = unreadCounts[userId] || 0;
-        
-        return {
-          id: doc.id,
-          type: data.type,
-          participants: data.participants,
-          name: data.name,
-          photoURL: data.photoURL,
-          admins: data.admins,
-          lastMessage: data.lastMessage,
-          updatedAt: data.updatedAt as Timestamp,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt as Timestamp,
-          unreadCount, // Current user's unread count only
-          unreadCounts: data.unreadCounts, // Full map for Firestore sync
-        } as Chat;
-      });
-      
-      // Cache all chats in SQLite
       for (const chat of chats) {
         await cacheChatInSQLite(chat);
       }
       
-      // Call callback with updated chats
       callback(chats);
     },
     (error) => {

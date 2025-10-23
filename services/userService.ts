@@ -21,6 +21,8 @@ import {
 import { db } from './firebase';
 import { User, SQLiteUser } from '../types';
 import { cacheUser } from './sqlite';
+import { firestoreUserDataToUser } from '../utils/firestoreConverters';
+import { timestampToMillis } from '../utils/dateUtils';
 
 /**
  * Create a new user document in Firestore
@@ -44,22 +46,16 @@ export async function createUserDocument(
   }
 ): Promise<void> {
   try {
-    console.log('[UserService] Creating user document:', userId);
-    
-    // Create user document in Firestore
-    // WHY: We use setDoc (not addDoc) because we want to use the Auth UID as the document ID
     await setDoc(doc(db, 'users', userId), {
       id: userId,
       email: data.email || null,
       displayName: data.displayName,
       photoURL: data.photoURL || null,
       bio: data.bio || null,
-      createdAt: serverTimestamp(), // Server timestamp ensures consistency
+      createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
-      online: true, // User just signed up, they're online
+      online: true,
     });
-    
-    console.log('[UserService] User document created successfully');
   } catch (error) {
     console.error('[UserService] Failed to create user document:', error);
     throw error;
@@ -77,30 +73,13 @@ export async function createUserDocument(
  */
 export async function getUserById(userId: string): Promise<User | null> {
   try {
-    console.log('[UserService] Fetching user document:', userId);
-    
     const userDoc = await getDoc(doc(db, 'users', userId));
     
     if (!userDoc.exists()) {
-      console.log('[UserService] User document not found');
       return null;
     }
     
-    const data = userDoc.data();
-    console.log('[UserService] User document fetched successfully');
-    
-    // Convert Firestore data to User type
-    return {
-      id: data.id,
-      email: data.email,
-      phone: data.phone,
-      displayName: data.displayName,
-      photoURL: data.photoURL,
-      bio: data.bio,
-      createdAt: data.createdAt as Timestamp,
-      lastSeen: data.lastSeen as Timestamp,
-      online: data.online,
-    };
+    return firestoreUserDataToUser(userDoc.data(), userId);
   } catch (error) {
     console.error('[UserService] Failed to fetch user document:', error);
     throw error;
@@ -128,9 +107,6 @@ export async function updateUserProfile(
   }
 ): Promise<void> {
   try {
-    console.log('[UserService] Updating user profile:', userId);
-    
-    // Only update fields that are provided
     const updateData: any = {};
     if (updates.displayName !== undefined) updateData.displayName = updates.displayName;
     if (updates.photoURL !== undefined) updateData.photoURL = updates.photoURL;
@@ -139,8 +115,6 @@ export async function updateUserProfile(
     if (updates.lastSeen !== undefined) updateData.lastSeen = updates.lastSeen;
     
     await updateDoc(doc(db, 'users', userId), updateData);
-    
-    console.log('[UserService] User profile updated successfully');
   } catch (error) {
     console.error('[UserService] Failed to update user profile:', error);
     throw error;
@@ -157,16 +131,16 @@ export async function updateUserProfile(
  * @param online - Whether the user is currently online
  * @returns Promise that resolves when update is complete
  */
+/**
+ * @deprecated Use updatePresence from presenceService instead
+ * This function is maintained for backward compatibility but will be removed in future versions
+ */
 export async function updateUserPresence(userId: string, online: boolean): Promise<void> {
   try {
-    console.log('[UserService] Updating user presence:', userId, online);
-    
     await updateDoc(doc(db, 'users', userId), {
       online,
       lastSeen: serverTimestamp(),
     });
-    
-    console.log('[UserService] User presence updated successfully');
   } catch (error) {
     console.error('[UserService] Failed to update user presence:', error);
     throw error;
@@ -183,35 +157,19 @@ export async function updateUserPresence(userId: string, online: boolean): Promi
  */
 export async function getAllUsers(): Promise<User[]> {
   try {
-    console.log('[UserService] Fetching all users');
-    
     const usersRef = collection(db, 'users');
     const snapshot = await getDocs(usersRef);
     
-    const users: User[] = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        email: data.email,
-        phone: data.phone,
-        displayName: data.displayName,
-        photoURL: data.photoURL,
-        bio: data.bio,
-        createdAt: data.createdAt as Timestamp,
-        lastSeen: data.lastSeen as Timestamp,
-        online: data.online,
-      } as User;
-    });
+    const users: User[] = snapshot.docs.map((doc) => 
+      firestoreUserDataToUser(doc.data(), doc.id)
+    );
     
-    console.log(`[UserService] Fetched ${users.length} users`);
-    
-    // Cache all users in SQLite for offline access
     for (const user of users) {
       const sqliteUser: SQLiteUser = {
         id: user.id,
         displayName: user.displayName,
         photoURL: user.photoURL,
-        lastSeen: user.lastSeen instanceof Timestamp ? user.lastSeen.toMillis() : Date.now(),
+        lastSeen: timestampToMillis(user.lastSeen),
         online: user.online ? 1 : 0,
       };
       await cacheUser(sqliteUser);
