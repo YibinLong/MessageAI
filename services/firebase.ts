@@ -18,6 +18,7 @@ import {
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getDatabase, Database } from 'firebase/database';
+import { getFunctions, Functions } from 'firebase/functions';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
@@ -62,12 +63,14 @@ if (getApps().length === 0) {
  * - db: Firestore database for storing messages, chats, user profiles
  * - storage: For uploading/downloading images and media files
  * - realtimeDb: For real-time presence (online/offline status)
+ * - functions: For calling Cloud Functions (AI features)
  * 
  * NOTE: We initialize these AFTER the app is created to ensure proper order
  */
 export const db: Firestore = getFirestore(app);
 export const storage: FirebaseStorage = getStorage(app);
 export const realtimeDb: Database = getDatabase(app);
+export const functions: Functions = getFunctions(app);
 
 /**
  * Initialize Firebase Auth with React Native AsyncStorage persistence
