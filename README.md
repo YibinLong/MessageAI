@@ -1,5 +1,7 @@
 # MessageAI - WhatsApp Clone with AI Features
 
+An AI-powered messaging platform designed for content creators to manage fan interactions at scale.
+
 A full-featured real-time messaging app built with React Native and Firebase, designed for content creators to manage fan interactions with AI-powered assistance.
 
 > **Note:** This project is built for evaluation against the [MessageAI Rubric](docs/MessageAI_Rubric.md).

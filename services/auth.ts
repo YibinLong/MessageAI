@@ -109,11 +109,7 @@ export async function signOut(): Promise<void> {
  */
 export async function resetPassword(email: string): Promise<void> {
   try {
-    console.log('[Auth] Sending password reset email...');
-    
     await sendPasswordResetEmail(auth, email);
-    
-    console.log('[Auth] Password reset email sent successfully');
   } catch (error: any) {
     console.error('[Auth] Password reset failed:', error.code, error.message);
     throw error;

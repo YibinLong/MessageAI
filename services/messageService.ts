@@ -337,25 +337,6 @@ export function subscribeToMessages(
 }
 
 /**
- * Update message status
- * 
- * WHY: As messages progress through sending → sent → delivered → read,
- * we need to update their status in the local database.
- * 
- * WHAT: Wrapper for SQLite updateMessageStatus - exported for external use
- * 
- * @param messageId - Message ID to update
- * @param status - New status value
- */
-export async function updateMessageStatus(
-  messageId: string,
-  status: 'sending' | 'sent' | 'delivered' | 'read'
-): Promise<void> {
-  // Delegate to SQLite function which uses the operation queue
-  await updateMessageStatusSQLite(messageId, status);
-}
-
-/**
  * Retry sending unsent messages (offline queue)
  * 
  * WHY: When user is offline, messages stay in 'sending' status. When they

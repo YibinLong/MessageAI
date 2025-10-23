@@ -128,6 +128,33 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
   };
 
   /**
+   * Get read count text for group chats
+   * 
+   * WHY: Show how many group members have read the last message
+   * WHAT: Returns "Read by X/Y" where X is readers and Y is total recipients
+   */
+  const getReadCountText = (): string | null => {
+    // Only show for group chats
+    if (chat.type !== 'group' || !chat.lastMessage) {
+      return null;
+    }
+
+    // Get readBy array from last message
+    const readBy = (chat.lastMessage as any).readBy || [];
+    const readCount = readBy.length;
+    
+    // Total recipients = all participants minus the sender
+    const totalRecipients = chat.participants.length - 1;
+    
+    // Only show if there's at least one participant to read
+    if (totalRecipients > 0) {
+      return `Read by ${readCount}/${totalRecipients}`;
+    }
+    
+    return null;
+  };
+
+  /**
    * Get category badge color
    * 
    * WHY: Visual indication of message category for quick scanning
@@ -157,6 +184,7 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
   const displayName = getDisplayName();
   const avatarSource = getAvatarSource();
   const lastMessagePreview = getLastMessagePreview();
+  const readCountText = getReadCountText();
   const hasUnread = (chat.unreadCount || 0) > 0;
   const aiCategory = (chat.lastMessage as any)?.aiCategory;
   const collaborationScore = (chat.lastMessage as any)?.aiCollaborationScore || 0;
@@ -165,7 +193,18 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
   return (
     <List.Item
       title={displayName}
-      description={lastMessagePreview}
+      description={() => (
+        <View>
+          <Text style={styles.description} numberOfLines={1}>
+            {lastMessagePreview}
+          </Text>
+          {readCountText && (
+            <Text style={styles.readCount}>
+              {readCountText}
+            </Text>
+          )}
+        </View>
+      )}
       onPress={onPress}
       left={() => (
         <View style={styles.avatarContainer}>
@@ -213,8 +252,6 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
         </View>
       )}
       titleStyle={[styles.title, isHighPriority && styles.priorityTitle]}
-      descriptionStyle={styles.description}
-      descriptionNumberOfLines={1}
       style={styles.listItem}
     />
   );
@@ -254,6 +291,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  readCount: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
   },
   rightContainer: {
     alignItems: 'flex-end',
