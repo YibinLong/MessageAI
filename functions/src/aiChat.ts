@@ -13,6 +13,7 @@ import {
   getMessageStats,
   listHighPriorityChats,
 } from './aiTools';
+import { checkAndIncrementRateLimit } from './rateLimiter';
 
 /**
  * Send a message to the AI assistant
@@ -47,6 +48,10 @@ export const sendAIChatMessage = functions.https.onCall(async (data, context) =>
     if (context.auth.uid !== userId) {
       throw new functions.https.HttpsError('permission-denied', 'Can only chat for yourself');
     }
+
+    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
+    // WHY: Each AI chat message uses OpenAI API
+    await checkAndIncrementRateLimit(userId);
 
     functions.logger.info('AI Chat message received', {
       userId,

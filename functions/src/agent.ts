@@ -16,6 +16,7 @@ import * as admin from 'firebase-admin';
 import { callOpenAI } from './aiService';
 import { logAgentAction } from './agentLogger';
 import { createSuggestedAction } from './suggestedActions';
+import { checkAndIncrementRateLimit } from './rateLimiter';
 
 /**
  * Run AI Agent for a user
@@ -55,6 +56,10 @@ export const runAgent = functions.https.onCall(async (data, context) => {
     if (context.auth.uid !== userId) {
       throw new functions.https.HttpsError('permission-denied', 'Can only run agent for yourself');
     }
+
+    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
+    // WHY: Agent makes many AI calls, so rate limiting is critical
+    await checkAndIncrementRateLimit(userId);
 
     functions.logger.info('Running agent', { userId });
 
