@@ -175,12 +175,13 @@ export function getDatabase(): SQLite.SQLiteDatabase {
  * 
  * USE THIS for operations that should continue even if SQLite fails
  */
-export function getDatabaseSafe(): SQLite.SQLiteDatabase | null {
-  if (!db) {
-    console.warn('[SQLite] Database not initialized, operations will be skipped');
-    return null;
-  }
+export function getDatabaseOrNull(): SQLite.SQLiteDatabase | null {
   return db;
+}
+
+/** @deprecated Use getDatabaseOrNull instead */
+export function getDatabaseSafe(): SQLite.SQLiteDatabase | null {
+  return getDatabaseOrNull();
 }
 
 /**
@@ -195,7 +196,6 @@ export async function insertMessage(message: SQLiteMessage): Promise<void> {
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, skipping message insert');
       return;
     }
     
@@ -217,10 +217,8 @@ export async function insertMessage(message: SQLiteMessage): Promise<void> {
           message.synced,
         ]
       );
-      console.log('[SQLite] Message inserted:', message.id);
     } catch (error) {
       console.warn('[SQLite] Insert message failed:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
@@ -242,21 +240,17 @@ export async function getMessagesByChat(
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, returning empty messages');
       return [];
     }
     
     try {
-      const result = await database.getAllAsync<SQLiteMessage>(
+      return await database.getAllAsync<SQLiteMessage>(
         `SELECT * FROM messages 
          WHERE chatId = ? 
          ORDER BY timestamp DESC 
          LIMIT ?`,
         [chatId, limit]
       );
-      
-      console.log(`[SQLite] Retrieved ${result.length} messages for chat ${chatId}`);
-      return result;
     } catch (error) {
       console.warn('[SQLite] Get messages failed:', error);
       return [];
@@ -276,18 +270,14 @@ export async function getAllChats(): Promise<SQLiteChat[]> {
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, returning empty chats');
       return [];
     }
     
     try {
-      const result = await database.getAllAsync<SQLiteChat>(
+      return await database.getAllAsync<SQLiteChat>(
         `SELECT * FROM chats 
          ORDER BY updatedAt DESC`
       );
-      
-      console.log(`[SQLite] Retrieved ${result.length} chats`);
-      return result;
     } catch (error) {
       console.warn('[SQLite] Get chats failed:', error);
       return [];
@@ -307,7 +297,6 @@ export async function upsertChat(chat: SQLiteChat): Promise<void> {
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, skipping chat upsert');
       return;
     }
     
@@ -328,10 +317,8 @@ export async function upsertChat(chat: SQLiteChat): Promise<void> {
           chat.unreadCount || 0,
         ]
       );
-      console.log('[SQLite] Chat upserted:', chat.id);
     } catch (error) {
       console.warn('[SQLite] Upsert chat failed:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
@@ -348,7 +335,6 @@ export async function cacheUser(user: SQLiteUser): Promise<void> {
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, skipping user cache');
       return;
     }
     
@@ -365,10 +351,8 @@ export async function cacheUser(user: SQLiteUser): Promise<void> {
           user.online,
         ]
       );
-      console.log('[SQLite] User cached:', user.id);
     } catch (error) {
       console.warn('[SQLite] Cache user failed:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
@@ -383,7 +367,6 @@ export async function getCachedUser(userId: string): Promise<SQLiteUser | null> 
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, returning null for cached user');
       return null;
     }
     
@@ -416,7 +399,6 @@ export async function updateMessageStatus(
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, skipping status update');
       return;
     }
     
@@ -425,10 +407,8 @@ export async function updateMessageStatus(
         'UPDATE messages SET status = ?, synced = 1 WHERE id = ?',
         [status, messageId]
       );
-      console.log('[SQLite] Message status updated:', messageId, '→', status);
     } catch (error) {
       console.warn('[SQLite] Failed to update message status:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
@@ -450,12 +430,11 @@ export async function getMessagesByStatus(
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, returning empty messages');
       return [];
     }
     
     try {
-      const result = chatId
+      return chatId
         ? await database.getAllAsync<SQLiteMessage>(
             'SELECT * FROM messages WHERE status = ? AND chatId = ?',
             [status, chatId]
@@ -464,9 +443,6 @@ export async function getMessagesByStatus(
             'SELECT * FROM messages WHERE status = ?',
             [status]
           );
-      
-      console.log(`[SQLite] Retrieved ${result.length} messages with status ${status}`);
-      return result;
     } catch (error) {
       console.warn('[SQLite] Get messages by status failed:', error);
       return [];
@@ -490,7 +466,6 @@ export async function updateMessageReadBy(
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, skipping readBy update');
       return;
     }
     
@@ -499,10 +474,8 @@ export async function updateMessageReadBy(
         'UPDATE messages SET readBy = ?, status = ?, synced = 1 WHERE id = ?',
         [JSON.stringify(readBy), 'read', messageId]
       );
-      console.log('[SQLite] Message readBy updated:', messageId);
     } catch (error) {
       console.warn('[SQLite] Failed to update message readBy:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
@@ -517,7 +490,6 @@ export async function clearDatabase(): Promise<void> {
   return queueOperation(async () => {
     const database = getDatabaseSafe();
     if (!database) {
-      console.warn('[SQLite] Database unavailable, cannot clear');
       return;
     }
     
@@ -530,7 +502,6 @@ export async function clearDatabase(): Promise<void> {
       console.log('[SQLite] Database cleared');
     } catch (error) {
       console.warn('[SQLite] Clear database failed:', error);
-      // Don't throw - graceful degradation
     }
   });
 }
