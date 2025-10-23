@@ -369,25 +369,6 @@
 
 ---
 
-### **Epic 3.6.5: AI UI Polish (Mini Epic)**
-
-**Story:** Complete missing UI components for AI features
-
-- ⬜ **Task 3.6.5.1:** Build FAQ management screen (app/(app)/faqs.tsx):
-  - List all FAQs with usage counts
-  - Add/Edit/Delete FAQs
-  - Toggle "Auto-respond to FAQs" setting
-  - Show FAQ usage statistics
-- ⬜ **Task 3.6.5.2:** Add sentiment emoji icons to message bubbles:
-  - Display 😊 for positive sentiment
-  - Display 😐 for neutral sentiment
-  - Display 😞 for negative sentiment
-  - Show sentiment icon next to message status checkmarks
-
-**Acceptance:** FAQ management screen is fully functional, sentiment emojis display correctly on all messages. ⬜ NOT STARTED
-
----
-
 ### **Epic 3.7: AI Feature 6 - Multi-Step Agent (ADVANCED)**
 
 **Story:** AI agent autonomously handles routine DMs
