@@ -118,6 +118,21 @@ function getSenderInitials(user: User | undefined): string {
 }
 
 /**
+ * Get sentiment icon
+ * 
+ * WHY: Visual indication of message sentiment
+ * WHAT: Returns emoji based on sentiment
+ */
+function getSentimentIcon(sentiment?: string): string | null {
+  switch (sentiment) {
+    case 'positive': return '😊';
+    case 'negative': return '😞';
+    case 'neutral': return '😐';
+    default: return null;
+  }
+}
+
+/**
  * Message Bubble Component
  * 
  * WHAT: Displays a single message with WhatsApp-style design
@@ -132,6 +147,14 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isSent
 
   // Check if this is an image message
   const isImageMessage = message.type === 'image' && message.mediaURL;
+  
+  // Get AI sentiment data (if available)
+  const aiSentiment = (message as any).aiSentiment;
+  const aiUrgency = (message as any).aiUrgency || 0;
+  const sentimentIcon = getSentimentIcon(aiSentiment);
+  
+  // Check if this is urgent AND negative (needs highlighting)
+  const isUrgentNegative = aiSentiment === 'negative' && aiUrgency >= 4;
 
   return (
     <View style={[styles.container, isSent ? styles.sentContainer : styles.receivedContainer]}>
@@ -146,7 +169,12 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isSent
         </View>
       )}
       
-      <View style={[styles.bubble, isSent ? styles.sentBubble : styles.receivedBubble, isImageMessage && styles.imageBubble]}>
+      <View style={[
+        styles.bubble, 
+        isSent ? styles.sentBubble : styles.receivedBubble, 
+        isImageMessage && styles.imageBubble,
+        isUrgentNegative && styles.urgentBubble
+      ]}>
         {/* Show sender name for received messages in group chats */}
         {isGroupChat && !isSent && senderUser && (
           <Text style={styles.senderName}>{senderUser.displayName}</Text>
@@ -193,6 +221,11 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isSent
 
         {/* Timestamp and status row */}
         <View style={styles.metaRow}>
+          {/* Sentiment icon (for received messages only) */}
+          {!isSent && sentimentIcon && (
+            <Text style={styles.sentimentIcon}>{sentimentIcon}</Text>
+          )}
+          
           <Text style={[styles.timestamp, isSent ? styles.sentTimestamp : styles.receivedTimestamp]}>
             {formatMessageTime(message.timestamp)}
           </Text>
@@ -258,6 +291,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', // White
     borderBottomLeftRadius: 4, // Sharp corner on bottom-left (WhatsApp style)
   },
+  urgentBubble: {
+    borderWidth: 2,
+    borderColor: '#F44336', // Red border for urgent negative messages
+    backgroundColor: '#FFEBEE', // Light red background
+  },
   senderName: {
     fontSize: 13,
     fontWeight: '600',
@@ -297,6 +335,10 @@ const styles = StyleSheet.create({
   },
   statusIcon: {
     marginLeft: 2,
+  },
+  sentimentIcon: {
+    fontSize: 14,
+    marginRight: 4,
   },
   imageBubble: {
     padding: 4, // Less padding for images
