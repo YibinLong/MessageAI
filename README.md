@@ -144,6 +144,24 @@ The following AI features are designed for content creators managing fan interac
 
 > See [PRD.md](PRD.md) for detailed feature specifications.
 
+### AI Rate Limiting
+
+To prevent abuse and control costs, AI features are rate-limited:
+
+- **Limit**: 100 AI calls per hour per user
+- **Scope**: Applies to user-initiated AI calls (drafting, agent, AI chat)
+- **Auto-triggers**: Categorization and FAQ detection are unlimited (essential UX)
+- **Reset**: Automatically resets every hour
+
+If you hit the limit, you'll see a friendly message telling you when you can try again.
+
+**Affected Features:**
+- ✅ Response drafting (Epic 3.3)
+- ✅ AI Agent runs (Epic 3.7)
+- ✅ AI Chat messages (Epic 3.8)
+- ⚠️ Auto-categorization (Unlimited - happens automatically)
+- ⚠️ FAQ detection (Unlimited - happens automatically)
+
 ## 📝 Development Commands
 
 ```bash
