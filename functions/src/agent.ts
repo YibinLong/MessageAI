@@ -57,13 +57,8 @@ export const runAgent = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('permission-denied', 'Can only run agent for yourself');
     }
 
-    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
-    // WHY: Agent makes many AI calls, so rate limiting is critical
-    await checkAndIncrementRateLimit(userId);
-
-    functions.logger.info('Running agent', { userId });
-
-    // Check if agent is enabled
+    // Check if agent is enabled BEFORE consuming rate limit quota
+    // WHY: Don't waste quota if agent is disabled anyway
     const agentSettings = await admin.firestore()
       .collection('users')
       .doc(userId)
@@ -79,6 +74,13 @@ export const runAgent = functions.https.onCall(async (data, context) => {
         'Agent is not enabled. Enable it in settings first.'
       );
     }
+
+    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
+    // WHY: Agent makes many AI calls, so rate limiting is critical
+    // WHEN: Only check AFTER validating all preconditions (enabled status, etc.)
+    await checkAndIncrementRateLimit(userId);
+
+    functions.logger.info('Running agent', { userId });
 
     // Get user's chats
     const chatsSnapshot = await admin.firestore()
