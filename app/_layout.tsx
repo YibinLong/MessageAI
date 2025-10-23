@@ -61,16 +61,9 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
-        console.log('[App] Initializing...');
-        
-        // Initialize SQLite database (skip on web)
         if (Platform.OS !== 'web') {
           await initDatabase();
-        } else {
-          console.log('[App] Skipping SQLite on web (not supported)');
         }
-        
-        console.log('[App] Database ready');
         setIsReady(true);
       } catch (err) {
         console.error('[App] Initialization failed:', err);
@@ -89,58 +82,36 @@ export default function RootLayout() {
    */
   useEffect(() => {
     if (!isReady) return;
-
-    console.log('[App] Setting up auth listener...');
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          console.log('[App] User is signed in:', firebaseUser.uid);
-          
-          // Fetch full user profile from Firestore
           const userData = await getUserById(firebaseUser.uid);
           
           if (userData) {
-            // Update user presence to online in Firestore (legacy field)
             await updateUserPresence(firebaseUser.uid, true);
-            
-            // Set up Firebase Realtime Database presence tracking
-            // WHY: This automatically sets user offline if they disconnect
             const cleanupPresence: () => Promise<void> = await setupPresenceListener(firebaseUser.uid);
             presenceCleanupRef.current = cleanupPresence;
             
-            // Register for push notifications
-            // NOTE: Expo Go doesn't support push notifications in SDK 53+
-            // This will work in development builds and production builds
             try {
               const pushToken = await registerForPushNotificationsAsync();
               if (pushToken) {
                 await storeDeviceToken(firebaseUser.uid, pushToken);
-                console.log('[App] Push notifications registered');
               }
             } catch (error: any) {
               // Expected in Expo Go - notifications require development build
-              console.log('[App] Push notifications not available (Expo Go limitation)');
-              console.log('[App] To test notifications, build with: eas build --profile development');
-              // Continue without errors - presence and groups will still work!
             }
             
-            // Update Zustand store with user data
             setUser(userData);
-            console.log('[App] User data loaded and presence set up');
           } else {
             console.warn('[App] User document not found in Firestore');
             clearUser();
           }
         } else {
-          console.log('[App] No user signed in');
-          
-          // Clean up presence if user signs out
           if (presenceCleanupRef.current) {
             await presenceCleanupRef.current();
             presenceCleanupRef.current = null;
           }
-          
           clearUser();
         }
       } catch (error) {
@@ -151,11 +122,7 @@ export default function RootLayout() {
       }
     });
 
-    // Cleanup listener on unmount
-    return () => {
-      console.log('[App] Cleaning up auth listener');
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [isReady]);
 
   /**
@@ -166,31 +133,16 @@ export default function RootLayout() {
    */
   useEffect(() => {
     if (!user) return;
-
-    console.log('[App] Setting up AppState listener for presence...');
     
     const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
-      console.log('[App] AppState changed to:', nextAppState);
-      
       if (nextAppState === 'active') {
-        // App came to foreground - set user online
-        console.log('[App] App foregrounded, setting user online');
         await updatePresence(user.id, true);
       } else if (nextAppState === 'background') {
-        // App went to background - set user offline
-        // WHY: Only set offline on 'background', not 'inactive'
-        // 'inactive' is transient (pulling down notifications, app switcher)
-        // 'background' means user actually left the app
-        console.log('[App] App backgrounded, setting user offline');
         await updatePresence(user.id, false);
       }
-      // Note: 'inactive' is ignored - user is still considered online during transitions
     });
 
-    return () => {
-      console.log('[App] Cleaning up AppState listener');
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, [user]);
 
   /**
@@ -200,25 +152,17 @@ export default function RootLayout() {
    * WHAT: Listens to notification events and navigates to chat when tapped
    */
   useEffect(() => {
-    console.log('[App] Setting up notification listeners...');
-    
     const cleanup = setupNotificationListeners(
-      // On notification received (foreground)
       (notification) => {
-        console.log('[App] Notification received:', notification.request.content);
-        // You can show a custom in-app banner here if needed
+        // Notification received in foreground
       },
-      // On notification tapped
       (chatId) => {
-        console.log('[App] Navigating to chat from notification:', chatId);
         router.push(`/(app)/chat/${chatId}`);
       }
     );
     
     notificationCleanupRef.current = cleanup;
-
     return () => {
-      console.log('[App] Cleaning up notification listeners');
       if (notificationCleanupRef.current) {
         notificationCleanupRef.current();
       }
@@ -238,12 +182,8 @@ export default function RootLayout() {
     const inAppGroup = segments[0] === '(app)';
 
     if (user && !inAppGroup) {
-      // User is signed in but not in app group → redirect to app
-      console.log('[App] Redirecting to app...');
       router.replace('/(app)');
     } else if (!user && !inAuthGroup) {
-      // User is not signed in but not in auth group → redirect to auth
-      console.log('[App] Redirecting to auth...');
       router.replace('/(auth)/signin');
     }
   }, [user, segments, isReady]);
