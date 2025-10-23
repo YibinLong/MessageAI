@@ -35,6 +35,8 @@ export { onMessageCreated };
  * Export AI categorization functions (includes sentiment & collaboration scoring)
  */
 export { categorizeMessage, recategorizeMessage };
+
+/**
  * Export FAQ detection functions
  */
 export { detectFAQ };
