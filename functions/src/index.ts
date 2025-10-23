@@ -15,6 +15,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { onMessageCreated } from './notifications';
 import { categorizeMessage, recategorizeMessage } from './categorization';
+import { draftResponse } from './draftResponse';
 
 /**
  * Initialize Firebase Admin SDK
@@ -33,6 +34,11 @@ export { onMessageCreated };
  * Export AI categorization functions (includes sentiment & collaboration scoring)
  */
 export { categorizeMessage, recategorizeMessage };
+
+/**
+ * Export AI response drafting functions
+ */
+export { draftResponse };
 
 /**
  * Test function to verify Cloud Functions are working
