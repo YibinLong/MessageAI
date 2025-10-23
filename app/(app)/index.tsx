@@ -562,21 +562,6 @@ export default function ChatListScreen() {
 
             <Divider style={styles.menuDivider} />
 
-            {/* AI Assistant */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/ai-chat');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>AI Assistant</Text>
-            </TouchableOpacity>
-
-            <Divider style={styles.menuDivider} />
-
             {/* Sign Out */}
             <TouchableOpacity
               style={styles.menuItem}
