@@ -53,6 +53,9 @@ export default function ChatListScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSentiment, setSelectedSentiment] = useState<string>('all');
   
+  // Agent State
+  const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
+  
   // Ref to track previous connection state for auto-refresh
   const wasOfflineRef = useRef(false);
   
@@ -103,6 +106,25 @@ export default function ChatListScreen() {
       wasOfflineRef.current = true;
     }
   }, [isConnected, currentUser]);
+
+  /**
+   * Listen to pending suggestions count for badge
+   * 
+   * WHY: Show badge on FAQ Settings to indicate pending actions
+   * WHAT: Real-time listener for pending suggested actions
+   */
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Import agentService dynamically to avoid circular deps
+    import('../../services/agentService').then(({ listenToSuggestedActions }) => {
+      const unsubscribe = listenToSuggestedActions(currentUser.id, (actions) => {
+        setPendingSuggestionsCount(actions.length);
+      });
+
+      return () => unsubscribe();
+    });
+  }, [currentUser]);
 
   /**
    * Load chats from SQLite cache
@@ -520,6 +542,41 @@ export default function ChatListScreen() {
 
             <Divider style={styles.menuDivider} />
 
+            {/* Smart Replies (AI Agent) */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                router.push('/(app)/smart-replies');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="sparkles-outline" size={22} color="#333" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Smart Replies</Text>
+              {pendingSuggestionsCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{pendingSuggestionsCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <Divider style={styles.menuDivider} />
+
+            {/* AI Assistant */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                router.push('/(app)/ai-chat');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
+              <Text style={styles.menuText}>AI Assistant</Text>
+            </TouchableOpacity>
+
+            <Divider style={styles.menuDivider} />
+
             {/* Sign Out */}
             <TouchableOpacity
               style={styles.menuItem}
@@ -550,6 +607,7 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'all'}
             onPress={() => handleCategoryChange('all')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             All
           </Chip>
@@ -558,6 +616,7 @@ export default function ChatListScreen() {
             onPress={() => handleCategoryChange('priority')}
             style={styles.filterChip}
             icon="star"
+            showSelectedCheck={true}
           >
             Priority
           </Chip>
@@ -565,6 +624,7 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'fan'}
             onPress={() => handleCategoryChange('fan')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             Fan
           </Chip>
@@ -572,6 +632,7 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'business'}
             onPress={() => handleCategoryChange('business')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             Business
           </Chip>
@@ -579,6 +640,7 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'spam'}
             onPress={() => handleCategoryChange('spam')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             Spam
           </Chip>
@@ -586,6 +648,7 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'urgent'}
             onPress={() => handleCategoryChange('urgent')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             Urgent
           </Chip>
@@ -598,6 +661,7 @@ export default function ChatListScreen() {
             selected={selectedSentiment === 'all'}
             onPress={() => setSelectedSentiment('all')}
             style={styles.filterChip}
+            showSelectedCheck={true}
           >
             All
           </Chip>
@@ -606,6 +670,7 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('positive')}
             style={styles.filterChip}
             icon="emoticon-happy-outline"
+            showSelectedCheck={true}
           >
             Positive
           </Chip>
@@ -614,6 +679,7 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('neutral')}
             style={styles.filterChip}
             icon="emoticon-neutral-outline"
+            showSelectedCheck={true}
           >
             Neutral
           </Chip>
@@ -622,6 +688,7 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('negative')}
             style={styles.filterChip}
             icon="emoticon-sad-outline"
+            showSelectedCheck={true}
           >
             Negative
           </Chip>
@@ -769,5 +836,20 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: '#e0e0e0',
+  },
+  badge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
