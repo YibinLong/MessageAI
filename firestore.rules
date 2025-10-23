@@ -63,6 +63,11 @@ service cloud.firestore {
       match /agentLogs/{logId} {
         allow read, write: if isAuthenticated() && isOwner(userId);
       }
+      
+      // Agent settings (for FAQ auto-responder configuration)
+      match /agentSettings/{settingId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
     }
     
     /**
