@@ -16,9 +16,13 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import { Message, User } from '../types';
-import { Timestamp } from 'firebase/firestore';
+import { 
+  getMessageStatusIcon, 
+  formatMessageTime, 
+  getSentimentIcon,
+  getUserInitials 
+} from '../utils/messageUtils';
 
 /**
  * Props for MessageBubble component
@@ -32,105 +36,6 @@ interface MessageBubbleProps {
   onImagePress?: (imageUrl: string) => void; // Callback when image is tapped
 }
 
-/**
- * Format timestamp for display
- * 
- * WHY: Different time formats make more sense for recent vs old messages
- * WHAT: 
- * - Just now, 2m ago, 1h ago (for messages < 24h)
- * - "Yesterday at 10:45 AM" (for yesterday)
- * - "10:45 AM" (for today)
- * - "Jan 15 at 10:45 AM" (for older)
- * 
- * @param timestamp - Firestore Timestamp object
- * @returns Formatted time string
- */
-function formatMessageTime(timestamp: Timestamp): string {
-  const date = timestamp.toDate();
-  const now = new Date();
-  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-  // For messages less than 24 hours old, show relative time
-  if (diffInHours < 24) {
-    if (diffInHours < 0.016) {
-      // Less than 1 minute
-      return 'Just now';
-    }
-    return formatDistanceToNow(date, { addSuffix: true }); // "2 minutes ago", "1 hour ago"
-  }
-
-  // For yesterday's messages
-  if (isYesterday(date)) {
-    return `Yesterday at ${format(date, 'h:mm a')}`; // "Yesterday at 10:45 AM"
-  }
-
-  // For today (shouldn't happen since we check diffInHours < 24, but just in case)
-  if (isToday(date)) {
-    return format(date, 'h:mm a'); // "10:45 AM"
-  }
-
-  // For older messages
-  return format(date, 'MMM d at h:mm a'); // "Jan 15 at 10:45 AM"
-}
-
-/**
- * Get status icon based on message status
- * 
- * WHY: Visual feedback for message delivery status
- * WHAT:
- * - Clock: sending (message not yet uploaded)
- * - Single checkmark: sent (uploaded to Firestore)
- * - Double checkmark: delivered (recipient received)
- * - Blue double checkmark: read (recipient opened chat)
- * 
- * @param status - Message status
- * @returns Icon name and color
- */
-function getStatusIcon(status: string): { name: keyof typeof Ionicons.glyphMap; color: string } {
-  switch (status) {
-    case 'sending':
-      return { name: 'time-outline', color: '#999' }; // Clock icon (gray)
-    case 'sent':
-      return { name: 'checkmark', color: '#999' }; // Single checkmark (gray)
-    case 'delivered':
-      return { name: 'checkmark-done', color: '#999' }; // Double checkmark (gray)
-    case 'read':
-      return { name: 'checkmark-done', color: '#4FC3F7' }; // Double checkmark (blue)
-    default:
-      return { name: 'checkmark', color: '#999' };
-  }
-}
-
-/**
- * Get sender initials for avatar
- * 
- * WHY: Show initials when no profile photo available
- * WHAT: Takes first letter of each word in name
- */
-function getSenderInitials(user: User | undefined): string {
-  if (!user?.displayName) return '??';
-  return user.displayName
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-/**
- * Get sentiment icon
- * 
- * WHY: Visual indication of message sentiment
- * WHAT: Returns emoji based on sentiment
- */
-function getSentimentIcon(sentiment?: string): string | null {
-  switch (sentiment) {
-    case 'positive': return '😊';
-    case 'negative': return '😞';
-    case 'neutral': return '😐';
-    default: return null;
-  }
-}
 
 /**
  * Message Bubble Component
@@ -141,7 +46,7 @@ function getSentimentIcon(sentiment?: string): string | null {
  * NOTE: Memoized for performance in long message lists
  */
 export const MessageBubble = React.memo(function MessageBubble({ message, isSent, isGroupChat, senderUser, readByCount, onImagePress }: MessageBubbleProps) {
-  const statusIcon = getStatusIcon(message.status);
+  const statusIcon = getMessageStatusIcon(message.status);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -164,7 +69,7 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isSent
           {senderUser?.photoURL ? (
             <Avatar.Image size={32} source={{ uri: senderUser.photoURL }} />
           ) : (
-            <Avatar.Text size={32} label={getSenderInitials(senderUser)} />
+            <Avatar.Text size={32} label={getUserInitials(senderUser?.displayName)} />
           )}
         </View>
       )}
