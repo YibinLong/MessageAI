@@ -155,13 +155,5 @@ export function cosineSimilarity(vecA: number[], vecB: number[]): number {
     normB += vecB[i] * vecB[i];
   }
 
-  // Handle zero vectors to avoid NaN
-  // WHY: Zero vectors have norm = 0, causing division by zero
-  // WHAT: Return 0 similarity if either vector is zero (no similarity)
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  if (denominator === 0) {
-    return 0;
-  }
-
-  return dotProduct / denominator;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
