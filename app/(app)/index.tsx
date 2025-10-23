@@ -13,7 +13,7 @@
  * WHAT: FlatList of chats with real-time sync and offline fallback
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView, Modal, TouchableOpacity, Pressable } from 'react-native';
 import { Appbar, FAB, Text, ActivityIndicator, Chip, Divider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,8 @@ import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { Timestamp } from 'firebase/firestore';
 import { listenToPresence, PresenceData, updatePresence } from '../../services/presenceService';
+import { firestoreChatDataToChat } from '../../utils/firestoreConverters';
+import { timestampToMillis } from '../../utils/dateUtils';
 
 /**
  * Chat List Screen Component
@@ -115,7 +117,6 @@ export default function ChatListScreen() {
     try {
       const cachedChats = await getSQLiteChats();
       
-      // Convert SQLite chats to Chat objects
       const chatsFromCache: Chat[] = cachedChats.map(sqliteChat => ({
         id: sqliteChat.id,
         type: sqliteChat.type as '1:1' | 'group',
@@ -125,15 +126,12 @@ export default function ChatListScreen() {
         lastMessage: sqliteChat.lastMessage ? JSON.parse(sqliteChat.lastMessage) : undefined,
         updatedAt: Timestamp.fromMillis(sqliteChat.updatedAt),
         createdAt: Timestamp.fromMillis(sqliteChat.createdAt),
-        createdBy: '', // Not stored in SQLite
+        createdBy: '',
         unreadCount: sqliteChat.unreadCount || 0,
       }));
 
       setChats(chatsFromCache);
-      
-      // Load user profiles for cached chats
       await loadUserProfiles(chatsFromCache);
-      
       setLoading(false);
     } catch (error) {
       console.error('[ChatList] Failed to load chats from cache:', error);
@@ -191,10 +189,10 @@ export default function ChatListScreen() {
   };
 
   /**
-   * Load user profiles for all chat participants
+   * Load user profiles for all chat participants (optimized with Promise.all)
    * 
    * WHY: Need to display names and photos in chat list
-   * WHAT: Fetches user documents for all unique participants and sets up presence tracking
+   * WHAT: Batch fetches user documents in parallel, then sets up presence tracking
    * 
    * @param chatsToProcess - Chats to load profiles for
    */
@@ -202,7 +200,6 @@ export default function ChatListScreen() {
     if (!currentUser) return;
 
     try {
-      // Get unique user IDs from all chats (excluding current user)
       const userIds = new Set<string>();
       chatsToProcess.forEach(chat => {
         chat.participants.forEach(participantId => {
@@ -212,25 +209,23 @@ export default function ChatListScreen() {
         });
       });
 
-      // Fetch each user profile
       const newProfiles = new Map(userProfiles);
-      for (const userId of userIds) {
-        // Skip if already loaded
-        if (newProfiles.has(userId)) continue;
-
-        try {
-          const userProfile = await getUserById(userId);
-          if (userProfile) {
-            newProfiles.set(userId, userProfile);
-          }
-        } catch (error) {
-          console.warn(`[ChatList] Failed to load profile for user ${userId}:`, error);
-        }
-      }
-
-      setUserProfiles(newProfiles);
+      const userIdsToFetch = Array.from(userIds).filter(id => !newProfiles.has(id));
       
-      // Set up presence listeners for all users
+      if (userIdsToFetch.length > 0) {
+        const results = await Promise.allSettled(
+          userIdsToFetch.map(userId => getUserById(userId))
+        );
+        
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            newProfiles.set(userIdsToFetch[index], result.value);
+          }
+        });
+        
+        setUserProfiles(newProfiles);
+      }
+      
       setupPresenceListeners(Array.from(userIds));
     } catch (error) {
       console.error('[ChatList] Failed to load user profiles:', error);
@@ -401,18 +396,16 @@ export default function ChatListScreen() {
   };
 
   /**
-   * Filter chats based on selected category and sentiment
+   * Filter chats based on selected category and sentiment (memoized for performance)
    * 
    * WHY: Allow users to filter chats by AI-detected category/sentiment
    * WHAT: Filters chat list and sorts high-priority chats to top
    */
-  const getFilteredChats = (): Chat[] => {
+  const filteredChats = useMemo(() => {
     let filtered = [...chats];
 
-    // Filter by category
     if (selectedCategory !== 'all') {
       if (selectedCategory === 'priority') {
-        // High priority = collaboration score > 7
         filtered = filtered.filter(chat => 
           (chat.lastMessage as any)?.aiCollaborationScore > 7
         );
@@ -423,14 +416,12 @@ export default function ChatListScreen() {
       }
     }
 
-    // Filter by sentiment
     if (selectedSentiment !== 'all') {
       filtered = filtered.filter(chat => 
         (chat.lastMessage as any)?.aiSentiment === selectedSentiment
       );
     }
 
-    // Sort: high-priority chats first, then by update time
     return filtered.sort((a, b) => {
       const aScore = (a.lastMessage as any)?.aiCollaborationScore || 0;
       const bScore = (b.lastMessage as any)?.aiCollaborationScore || 0;
@@ -440,13 +431,11 @@ export default function ChatListScreen() {
       if (aIsPriority && !bIsPriority) return -1;
       if (!aIsPriority && bIsPriority) return 1;
 
-      // Same priority level, sort by time
-      // Handle null/undefined updatedAt fields
-      const aTime = a.updatedAt?.toMillis?.() || 0;
-      const bTime = b.updatedAt?.toMillis?.() || 0;
+      const aTime = timestampToMillis(a.updatedAt);
+      const bTime = timestampToMillis(b.updatedAt);
       return bTime - aTime;
     });
-  };
+  }, [chats, selectedCategory, selectedSentiment]);
 
   /**
    * Render empty state
@@ -665,7 +654,7 @@ export default function ChatListScreen() {
       {/* Chat List */}
       {!loading && (
         <FlatList
-          data={getFilteredChats()}
+          data={filteredChats}
           keyExtractor={(item) => item.id}
           renderItem={renderChatItem}
           ListEmptyComponent={renderEmptyState}
@@ -676,7 +665,7 @@ export default function ChatListScreen() {
               colors={['#25D366']}
             />
           }
-          contentContainerStyle={getFilteredChats().length === 0 ? styles.emptyList : undefined}
+          contentContainerStyle={filteredChats.length === 0 ? styles.emptyList : undefined}
         />
       )}
 
