@@ -120,7 +120,7 @@ Respond in JSON format:
 
       // Update chat's lastMessage with AI data (for filtering)
       // WHY: We need to propagate AI data to chat document for filtering
-      // WHAT: Verify this message is STILL the lastMessage before updating
+      // WHAT: Update lastMessage AI data if message ID matches (even if newer messages exist)
       try {
         const chatDoc = await admin.firestore()
           .collection('chats')
@@ -130,17 +130,10 @@ Respond in JSON format:
         if (chatDoc.exists && chatDoc.data()?.lastMessage) {
           const lastMessageData = chatDoc.data()?.lastMessage;
           
-          // Check if this message is still the last message
-          // WHY: Prevent race condition where newer message arrived during AI processing
-          // WHAT: Compare message ID or timestamp to ensure we're updating the correct message
-          const isStillLastMessage = 
-            lastMessageData.id === messageId || 
-            (lastMessageData.createdAt && 
-             messageData.createdAt && 
-             lastMessageData.createdAt.toMillis() === messageData.createdAt.toMillis());
-          
-          if (isStillLastMessage) {
-            // Safe to update - this is still the most recent message
+          // Check if lastMessage has an ID field to compare
+          // If it matches this message, update the AI data
+          if (lastMessageData.id === messageId) {
+            // This is the lastMessage - update with AI data
             await chatDoc.ref.update({
               'lastMessage.aiCategory': analysis.category,
               'lastMessage.aiSentiment': analysis.sentiment,
@@ -149,17 +142,28 @@ Respond in JSON format:
             });
             functions.logger.info('Chat lastMessage updated with AI data', { chatId, messageId });
           } else {
-            // A newer message arrived while we were processing
-            // Skip update to avoid overwriting newer message's data
-            functions.logger.warn('Message is no longer the lastMessage, skipping AI data update', { 
+            // This is NOT the lastMessage anymore
+            // BUT: We should still try to update it if we can find the message in Firestore
+            // and check if it matches based on timestamp
+            functions.logger.info('Message is not the current lastMessage, but will update AI fields anyway', { 
               chatId, 
               messageId,
-              currentLastMessageId: lastMessageData.id,
+              currentLastMessageId: lastMessageData.id || 'unknown',
             });
+            
+            // Still update if the text matches (fallback for messages without ID in lastMessage)
+            if (lastMessageData.text === messageData.text) {
+              await chatDoc.ref.update({
+                'lastMessage.aiCategory': analysis.category,
+                'lastMessage.aiSentiment': analysis.sentiment,
+                'lastMessage.aiUrgency': analysis.urgency,
+                'lastMessage.aiCollaborationScore': analysis.collaborationScore,
+              });
+              functions.logger.info('Updated lastMessage AI data by text match', { chatId, messageId });
+            }
           }
         } else {
-          // lastMessage doesn't exist yet (race condition)
-          // Skip update - it will be set when chat's lastMessage is created
+          // lastMessage doesn't exist yet
           functions.logger.warn('Chat lastMessage not found, skipping AI data update', { chatId });
         }
       } catch (updateError: any) {
