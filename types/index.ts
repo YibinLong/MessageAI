@@ -57,6 +57,12 @@ export interface Message {
   type: 'text' | 'image';        // Message type
   mediaURL?: string;             // Firebase Storage URL (for images)
   mediaPath?: string;            // Storage path (for deletion)
+  // AI-powered fields
+  aiCategory?: 'fan' | 'business' | 'spam' | 'urgent';  // AI categorization
+  aiSentiment?: 'positive' | 'neutral' | 'negative';    // AI sentiment analysis
+  aiUrgency?: number;            // AI urgency score (1-5)
+  aiCollaborationScore?: number; // AI collaboration potential (1-10)
+  matchedFAQId?: string;         // Matched FAQ ID (if applicable)
 }
 
 /**
@@ -120,5 +126,55 @@ export interface DeviceToken {
   platform: 'android' | 'ios';
   createdAt: Timestamp;
   lastUsed: Timestamp;
+}
+
+/**
+ * FAQ (Frequently Asked Question)
+ * Stored in Firestore at /users/{userId}/faqs/{faqId}
+ */
+export interface FAQ {
+  id: string;                    // Unique FAQ ID
+  question: string;              // The question to match
+  answer: string;                // The answer to send
+  usageCount: number;            // How many times this FAQ was used
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Agent Settings
+ * Stored in Firestore at /users/{userId}/agentSettings
+ */
+export interface AgentSettings {
+  enabled: boolean;              // Whether agent is enabled
+  autoRespondFans: boolean;      // Auto-respond to fan messages
+  autoRespondFAQs: boolean;      // Auto-respond to FAQ matches
+  autoArchiveSpam: boolean;      // Auto-archive spam messages
+  updatedAt: Timestamp;
+}
+
+/**
+ * Agent Log
+ * Stored in Firestore at /users/{userId}/agentLogs/{logId}
+ */
+export interface AgentLog {
+  id: string;                    // Unique log ID
+  action: 'categorize' | 'respond' | 'archive' | 'flag';  // Action taken
+  messageId: string;             // Message that triggered action
+  chatId: string;                // Chat the message belongs to
+  result: string;                // Result description
+  timestamp: Timestamp;
+}
+
+/**
+ * Message Embedding for RAG
+ * Stored in Firestore at /users/{userId}/messageEmbeddings/{messageId}
+ */
+export interface MessageEmbedding {
+  messageId: string;             // Original message ID
+  embedding: number[];           // Vector embedding from OpenAI
+  textSnippet: string;           // First 100 chars of message for reference
+  timestamp: Timestamp;
+  chatId: string;                // Chat the message belongs to
 }
 
