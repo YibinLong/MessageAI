@@ -17,6 +17,9 @@ import { onMessageCreated } from './notifications';
 import { categorizeMessage, recategorizeMessage } from './categorization';
 import { draftResponse } from './draftResponse';
 import { detectFAQ } from './faqDetection';
+import { sendAIChatMessage } from './aiChat';
+import { runAgent } from './agent';
+import { storeEmbeddingOnMessageCreate } from './ragService';
 
 /**
  * Initialize Firebase Admin SDK
@@ -45,6 +48,21 @@ export { detectFAQ };
  * Export AI response drafting functions
  */
 export { draftResponse };
+
+/**
+ * Export AI Chat functions (Epic 3.8)
+ */
+export { sendAIChatMessage };
+
+/**
+ * Export AI Agent functions (Epic 3.7)
+ */
+export { runAgent };
+
+/**
+ * Export RAG/Embedding functions (Epic 3.1)
+ */
+export { storeEmbeddingOnMessageCreate };
 
 /**
  * Test function to verify Cloud Functions are working

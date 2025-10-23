@@ -5,13 +5,59 @@
  * WHAT: Stores message embeddings and retrieves similar messages
  * 
  * This service implements a RAG pipeline:
- * 1. Store embeddings when messages are sent
+ * 1. Store embeddings when messages are sent (via Firestore trigger)
  * 2. Retrieve similar messages for context when drafting responses
  */
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { generateEmbedding, cosineSimilarity } from './aiService';
+
+/**
+ * Firestore Trigger: Store message embedding on creation
+ * 
+ * WHY: RAG needs embeddings to find similar messages
+ * WHAT: When a text message is created, generate and store its embedding
+ * 
+ * Triggered when: New message created in /chats/{chatId}/messages/{messageId}
+ * Stores: Embedding in /users/{userId}/messageEmbeddings/{messageId}
+ */
+export const storeEmbeddingOnMessageCreate = functions.firestore
+  .document('chats/{chatId}/messages/{messageId}')
+  .onCreate(async (snapshot, context) => {
+    try {
+      const messageData = snapshot.data();
+      const { chatId, messageId } = context.params;
+
+      // Only store embeddings for text messages with content
+      if (!messageData.text || messageData.type !== 'text' || !messageData.text.trim()) {
+        functions.logger.info('Skipping embedding for non-text or empty message', { messageId });
+        return;
+      }
+
+      functions.logger.info('Storing embedding for message', { 
+        messageId,
+        chatId,
+        senderId: messageData.senderId,
+      });
+
+      // Store embedding for the sender (so they can search their own messages)
+      await storeMessageEmbedding(
+        messageId,
+        messageData.senderId,
+        messageData.text,
+        chatId
+      );
+
+      functions.logger.info('Embedding stored successfully', { messageId });
+    } catch (error: any) {
+      functions.logger.error('Failed to store embedding', {
+        error: error.message,
+        messageId: context.params.messageId,
+      });
+      // Don't throw - embedding storage is optional, don't block message delivery
+    }
+  });
 
 /**
  * Store message embedding in Firestore
