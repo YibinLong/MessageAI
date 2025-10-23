@@ -32,21 +32,6 @@ admin.initializeApp();
 export { onMessageCreated };
 
 /**
- * Export AI categorization functions (includes sentiment & collaboration scoring)
- */
-export { categorizeMessage, recategorizeMessage };
-
-/**
- * Export AI response drafting functions
- */
-export { draftResponse };
-
-/**
- * Export FAQ detection functions
- */
-export { detectFAQ };
-
-/**
  * Test function to verify Cloud Functions are working
  * 
  * WHY: Simple test endpoint to confirm deployment succeeded
