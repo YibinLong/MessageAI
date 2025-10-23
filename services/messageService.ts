@@ -128,8 +128,8 @@ export async function sendMessage(
         console.warn('[MessageService] SQLite status update failed:', sqliteError);
       }
       
-      // 4. Update chat's last message
-      await updateChatLastMessage(chatId, text, senderId);
+      // 4. Update chat's last message (include message ID for AI categorization)
+      await updateChatLastMessage(chatId, text, senderId, messageId);
     } catch (uploadError) {
       console.error('[MessageService] Failed to upload to Firestore:', uploadError);
       // Don't throw - message is saved locally and will retry later
@@ -239,8 +239,8 @@ export async function sendImageMessage(
         console.warn('[MessageService] SQLite status update failed:', sqliteError);
       }
       
-      // 6. Update chat's last message (show "📷 Image" as preview)
-      await updateChatLastMessage(chatId, '📷 Image', senderId);
+      // 6. Update chat's last message (show "📷 Image" as preview, include message ID)
+      await updateChatLastMessage(chatId, '📷 Image', senderId, messageId);
     } catch (uploadError) {
       console.error('[MessageService] Failed to upload message to Firestore:', uploadError);
       // Message is saved locally and will retry later
@@ -404,8 +404,8 @@ export async function retryUnsentMessages(chatId?: string): Promise<number> {
           console.warn('[MessageService] SQLite status update failed during retry:', sqliteError);
         }
         
-        // Update chat's last message
-        await updateChatLastMessage(sqliteMsg.chatId, sqliteMsg.text, sqliteMsg.senderId);
+        // Update chat's last message (include message ID)
+        await updateChatLastMessage(sqliteMsg.chatId, sqliteMsg.text, sqliteMsg.senderId, sqliteMsg.id);
         
         successCount++;
       } catch (error) {
