@@ -35,6 +35,14 @@ export async function runAgent(userId: string): Promise<{
     };
   } catch (error: any) {
     console.error('[AgentService] Failed to run agent:', error);
+    
+    // ✅ Handle rate limiting errors with user-friendly message
+    // WHY: Give users clear feedback about hourly limit
+    if (error.code === 'functions/resource-exhausted') {
+      // Error message already includes time remaining from Cloud Function
+      throw new Error(error.message);
+    }
+    
     throw new Error(error.message || 'Failed to run agent');
   }
 }
