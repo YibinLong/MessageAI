@@ -119,15 +119,56 @@ Respond in JSON format:
       });
 
       // Update chat's lastMessage with AI data (for filtering)
-      await admin.firestore()
-        .collection('chats')
-        .doc(chatId)
-        .update({
-          'lastMessage.aiCategory': analysis.category,
-          'lastMessage.aiSentiment': analysis.sentiment,
-          'lastMessage.aiUrgency': analysis.urgency,
-          'lastMessage.aiCollaborationScore': analysis.collaborationScore,
+      // WHY: We need to propagate AI data to chat document for filtering
+      // WHAT: Verify this message is STILL the lastMessage before updating
+      try {
+        const chatDoc = await admin.firestore()
+          .collection('chats')
+          .doc(chatId)
+          .get();
+
+        if (chatDoc.exists && chatDoc.data()?.lastMessage) {
+          const lastMessageData = chatDoc.data()?.lastMessage;
+          
+          // Check if this message is still the last message
+          // WHY: Prevent race condition where newer message arrived during AI processing
+          // WHAT: Compare message ID or timestamp to ensure we're updating the correct message
+          const isStillLastMessage = 
+            lastMessageData.id === messageId || 
+            (lastMessageData.createdAt && 
+             messageData.createdAt && 
+             lastMessageData.createdAt.toMillis() === messageData.createdAt.toMillis());
+          
+          if (isStillLastMessage) {
+            // Safe to update - this is still the most recent message
+            await chatDoc.ref.update({
+              'lastMessage.aiCategory': analysis.category,
+              'lastMessage.aiSentiment': analysis.sentiment,
+              'lastMessage.aiUrgency': analysis.urgency,
+              'lastMessage.aiCollaborationScore': analysis.collaborationScore,
+            });
+            functions.logger.info('Chat lastMessage updated with AI data', { chatId, messageId });
+          } else {
+            // A newer message arrived while we were processing
+            // Skip update to avoid overwriting newer message's data
+            functions.logger.warn('Message is no longer the lastMessage, skipping AI data update', { 
+              chatId, 
+              messageId,
+              currentLastMessageId: lastMessageData.id,
+            });
+          }
+        } else {
+          // lastMessage doesn't exist yet (race condition)
+          // Skip update - it will be set when chat's lastMessage is created
+          functions.logger.warn('Chat lastMessage not found, skipping AI data update', { chatId });
+        }
+      } catch (updateError: any) {
+        // Don't throw - this is a non-critical update
+        functions.logger.error('Failed to update chat with AI data', {
+          chatId,
+          error: updateError.message,
         });
+      }
 
     } catch (error: any) {
       functions.logger.error('Message categorization failed', {
