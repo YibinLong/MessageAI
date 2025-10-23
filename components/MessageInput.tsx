@@ -25,9 +25,14 @@ interface MessageInputProps {
   onSend: (text: string) => void; // Callback when user sends message
   onSendImage?: (imageUri: string) => Promise<void>; // Callback when user sends image
   disabled?: boolean; // Whether input is disabled
-  chatId: string; // Chat ID for typing indicators
-  userId: string; // Current user ID for typing indicators
+  placeholder?: string; // Custom placeholder text
+  chatId?: string; // Chat ID for typing indicators (optional for AI chat)
+  userId?: string; // Current user ID for typing indicators (optional for AI chat)
   lastReceivedMessage?: string; // Last message received (for AI draft context)
+  showAIDraftButton?: boolean; // Show AI draft button (default true)
+  showImageButton?: boolean; // Show image upload button (default true)
+  value?: string; // Controlled input value (optional)
+  onChangeText?: (text: string) => void; // Controlled input callback (optional)
 }
 
 /**
@@ -44,11 +49,27 @@ interface MessageInputProps {
  * - Typing indicators with debouncing
  * - Image picker with compression
  */
-export function MessageInput({ onSend, onSendImage, disabled = false, chatId, userId, lastReceivedMessage }: MessageInputProps) {
-  const [text, setText] = useState('');
+export function MessageInput({ 
+  onSend, 
+  onSendImage, 
+  disabled = false, 
+  placeholder = "Type a message...", 
+  chatId, 
+  userId, 
+  lastReceivedMessage,
+  showAIDraftButton = true,
+  showImageButton = true,
+  value: controlledValue,
+  onChangeText: controlledOnChangeText,
+}: MessageInputProps) {
+  const [internalText, setInternalText] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showReplyPicker, setShowReplyPicker] = useState(false);
   const insets = useSafeAreaInsets();
+  
+  // Use controlled value if provided, otherwise use internal state
+  const text = controlledValue !== undefined ? controlledValue : internalText;
+  const setText = controlledOnChangeText !== undefined ? controlledOnChangeText : setInternalText;
   
   // Refs for managing typing indicator timeouts
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -80,8 +101,11 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
         // Update typing indicator (refreshes timestamp in Firestore)
         // WHY: Even if already typing, we need to keep the timestamp fresh
         // so the indicator doesn't disappear due to staleness check
-        startTyping(chatId, userId);
-        isTypingRef.current = true;
+        // Only call if chatId and userId are provided (not needed for AI chat)
+        if (chatId && userId) {
+          startTyping(chatId, userId);
+          isTypingRef.current = true;
+        }
         
         // Clear any existing typing timeout
         if (typingTimeoutRef.current) {
@@ -91,14 +115,18 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
         // Set timeout to clear typing indicator after 3 seconds of inactivity
         // WHY: If user stops typing, indicator should disappear
         typingTimeoutRef.current = setTimeout(() => {
-          stopTyping(chatId, userId);
-          isTypingRef.current = false;
+          if (chatId && userId) {
+            stopTyping(chatId, userId);
+            isTypingRef.current = false;
+          }
         }, 3000);
       }, 500);
     } else {
       // Text is empty, stop typing indicator
-      stopTyping(chatId, userId);
-      isTypingRef.current = false;
+      if (chatId && userId) {
+        stopTyping(chatId, userId);
+        isTypingRef.current = false;
+      }
     }
   };
 
@@ -118,8 +146,10 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
 
     // Stop typing indicator immediately
     // WHY: User sent the message, so they're no longer typing
-    stopTyping(chatId, userId);
-    isTypingRef.current = false;
+    if (chatId && userId) {
+      stopTyping(chatId, userId);
+      isTypingRef.current = false;
+    }
     
     // Clear timeouts
     if (typingTimeoutRef.current) {
@@ -133,7 +163,13 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
     onSend(trimmedText);
 
     // Clear input field
-    setText('');
+    // For controlled input, parent handles clearing via onChangeText
+    // For uncontrolled, we clear internal state
+    if (controlledOnChangeText) {
+      controlledOnChangeText('');
+    } else {
+      setInternalText('');
+    }
   };
 
   /**
@@ -237,38 +273,42 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
         </View>
       )}
 
-      {/* AI Draft button */}
-      <TouchableOpacity
-        style={styles.aiButton}
-        onPress={handleAIDraftPress}
-        disabled={disabled || isUploadingImage}
-        activeOpacity={0.7}
-      >
-        <MaterialCommunityIcons
-          name="robot-outline"
-          size={24}
-          color={disabled || isUploadingImage ? '#999' : '#25D366'}
-        />
-      </TouchableOpacity>
+      {/* AI Draft button (optional) */}
+      {showAIDraftButton && (
+        <TouchableOpacity
+          style={styles.aiButton}
+          onPress={handleAIDraftPress}
+          disabled={disabled || isUploadingImage}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="robot-outline"
+            size={24}
+            color={disabled || isUploadingImage ? '#999' : '#25D366'}
+          />
+        </TouchableOpacity>
+      )}
 
-      {/* Image picker button */}
-      <TouchableOpacity
-        style={styles.imageButton}
-        onPress={handleImagePick}
-        disabled={disabled || isUploadingImage}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="image-outline"
-          size={24}
-          color={disabled || isUploadingImage ? '#999' : '#25D366'}
-        />
-      </TouchableOpacity>
+      {/* Image picker button (optional) */}
+      {showImageButton && (
+        <TouchableOpacity
+          style={styles.imageButton}
+          onPress={handleImagePick}
+          disabled={disabled || isUploadingImage}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="image-outline"
+            size={24}
+            color={disabled || isUploadingImage ? '#999' : '#25D366'}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Text input field */}
       <TextInput
         style={styles.input}
-        placeholder="Type a message..."
+        placeholder={placeholder}
         placeholderTextColor="#999"
         value={text}
         onChangeText={handleTextChange}
