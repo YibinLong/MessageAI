@@ -100,41 +100,45 @@ export const runAgent = functions.https.onCall(async (data, context) => {
       try {
         // Get only the MOST RECENT message from other users (not sent by this user)
         // WHY: Only suggest actions for the latest message to avoid confusion
+        // NOTE: We fetch multiple messages and filter client-side because Firestore's
+        // != operator requires orderBy on that field, which breaks timestamp ordering
         const messagesSnapshot = await admin.firestore()
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .where('senderId', '!=', userId)
-          .orderBy('senderId')
           .orderBy('timestamp', 'desc')
-          .limit(1) // Only process the most recent message per chat
+          .limit(10) // Get recent messages, filter client-side
           .get();
 
-        // Process each message
-        for (const messageDoc of messagesSnapshot.docs) {
+        // Find the most recent message NOT sent by this user
+        const otherUserMessages = messagesSnapshot.docs.filter(
+          (doc) => doc.data().senderId !== userId
+        );
+
+        // Process only the most recent message from other users
+        const messageDoc = otherUserMessages[0];
+        if (messageDoc) {
           try {
             const messageData = messageDoc.data();
             const messageId = messageDoc.id;
 
             // Skip if not a text message
             if (messageData.type !== 'text' || !messageData.text) {
-              continue;
-            }
+              // Not a text message, skip processing
+            } else {
+              // Skip if already processed (has ANY suggested action - pending, approved, or rejected)
+              // WHY: Prevent duplicate suggestions when agent runs multiple times
+              const existingAction = await admin.firestore()
+                .collection('users')
+                .doc(userId)
+                .collection('suggestedActions')
+                .where('messageId', '==', messageId)
+                .get();
 
-            // Skip if already processed (has ANY suggested action - pending, approved, or rejected)
-            // WHY: Prevent duplicate suggestions when agent runs multiple times
-            const existingAction = await admin.firestore()
-              .collection('users')
-              .doc(userId)
-              .collection('suggestedActions')
-              .where('messageId', '==', messageId)
-              .get();
-
-            if (!existingAction.empty) {
-              continue; // Already has a suggestion (any status)
-            }
-
-            messagesProcessed++;
+              if (!existingAction.empty) {
+                // Already has a suggestion (any status), skip
+              } else {
+                messagesProcessed++;
 
             // Fetch sender details for display in UI
             let senderName: string | undefined;
@@ -289,6 +293,8 @@ export const runAgent = functions.https.onCall(async (data, context) => {
               );
 
               actionsSuggested++;
+                }
+              }
             }
           } catch (messageError: any) {
             functions.logger.error('Failed to process message', {
