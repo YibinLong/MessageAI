@@ -14,6 +14,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { onMessageCreated } from './notifications';
+import { categorizeMessage, recategorizeMessage } from './categorization';
+import { draftResponse } from './draftResponse';
+import { detectFAQ } from './faqDetection';
 
 /**
  * Initialize Firebase Admin SDK
@@ -27,6 +30,21 @@ admin.initializeApp();
  * Export notification functions
  */
 export { onMessageCreated };
+
+/**
+ * Export AI categorization functions (includes sentiment & collaboration scoring)
+ */
+export { categorizeMessage, recategorizeMessage };
+
+/**
+ * Export AI response drafting functions
+ */
+export { draftResponse };
+
+/**
+ * Export FAQ detection functions
+ */
+export { detectFAQ };
 
 /**
  * Test function to verify Cloud Functions are working
@@ -45,6 +63,46 @@ export const helloWorld = functions.https.onRequest((request, response) => {
     timestamp: new Date().toISOString(),
     status: 'success'
   });
+});
+
+/**
+ * Test OpenAI Connection
+ * 
+ * WHY: Verify OpenAI API key is configured correctly
+ * WHAT: Makes a simple test call to OpenAI API
+ * 
+ * HOW TO CALL:
+ * - From frontend: await testOpenAI()
+ */
+export const testOpenAI = functions.https.onCall(async (data, context) => {
+  try {
+    functions.logger.info('Testing OpenAI connection');
+
+    // Import dynamically to avoid circular dependencies
+    const { callOpenAI } = await import('./aiService');
+
+    // Make a simple test call
+    const response = await callOpenAI(
+      'Say "Hello from MessageAI!" in one sentence.',
+      { model: 'gpt-3.5-turbo', max_tokens: 50 }
+    );
+
+    functions.logger.info('OpenAI test successful', { response });
+
+    return {
+      success: true,
+      message: 'OpenAI connection working!',
+      response: response.content,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error: any) {
+    functions.logger.error('OpenAI test failed', { error: error.message });
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    };
+  }
 });
 
 /**
