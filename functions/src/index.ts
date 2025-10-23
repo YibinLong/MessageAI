@@ -83,33 +83,5 @@ export const helloWorld = functions.https.onRequest((request, response) => {
   });
 });
 
-/**
- * Note: onMessageCreated is now exported from notifications.ts
- * This function sends push notifications when new messages arrive
- */
-
-/**
- * Placeholder for AI categorization function
- * 
- * WHY: Will be implemented in Phase 3 for AI features
- * WHAT: Will use OpenAI to categorize messages as fan/business/spam/urgent
- */
-// export const categorizeMessage = functions.https.onCall(async (data, context) => {
-//   // TODO: Implement in Phase 3
-//   return { category: 'fan', confidence: 0.95 };
-// });
-
-/**
- * Placeholder for push notification function
- * 
- * WHY: Will send FCM notifications when messages arrive
- * WHAT: Sends notification to recipient's device tokens
- */
-// export const sendNotification = functions.firestore
-//   .document('chats/{chatId}/messages/{messageId}')
-//   .onCreate(async (snapshot, context) => {
-//     // TODO: Implement in Phase 2
-//   });
-
 functions.logger.info('MessageAI Cloud Functions initialized');
 

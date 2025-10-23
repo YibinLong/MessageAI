@@ -102,37 +102,5 @@ try {
 
 export const auth: Auth = authInstance;
 
-/**
- * Helper function to test Firebase connection
- * 
- * WHY: Used during setup to verify Firebase is configured correctly
- * WHAT: Attempts to write and read a test document from Firestore
- * 
- * @returns Promise that resolves to true if connection works, false otherwise
- */
-export async function testFirebaseConnection(): Promise<boolean> {
-  try {
-    const { collection, addDoc, getDocs } = await import('firebase/firestore');
-    
-    // Write a test document
-    const testRef = collection(db, 'test');
-    const docRef = await addDoc(testRef, {
-      message: 'Firebase connection test',
-      timestamp: new Date(),
-    });
-    
-    console.log('[Firebase] Test document written with ID:', docRef.id);
-    
-    // Read back test documents
-    const snapshot = await getDocs(testRef);
-    console.log('[Firebase] Test documents count:', snapshot.size);
-    
-    return true;
-  } catch (error) {
-    console.error('[Firebase] Connection test failed:', error);
-    return false;
-  }
-}
-
 export default app;
 
