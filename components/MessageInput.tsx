@@ -10,11 +10,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
 import { startTyping, stopTyping } from '../services/typingService';
 import { pickImage } from '../utils/imageUpload';
 import { compressImage, formatFileSize, getImageSize } from '../utils/imageCompression';
+import { ReplyPicker } from './ReplyPicker';
 
 /**
  * Props for MessageInput component
@@ -25,6 +27,7 @@ interface MessageInputProps {
   disabled?: boolean; // Whether input is disabled
   chatId: string; // Chat ID for typing indicators
   userId: string; // Current user ID for typing indicators
+  lastReceivedMessage?: string; // Last message received (for AI draft context)
 }
 
 /**
@@ -41,9 +44,10 @@ interface MessageInputProps {
  * - Typing indicators with debouncing
  * - Image picker with compression
  */
-export function MessageInput({ onSend, onSendImage, disabled = false, chatId, userId }: MessageInputProps) {
+export function MessageInput({ onSend, onSendImage, disabled = false, chatId, userId, lastReceivedMessage }: MessageInputProps) {
   const [text, setText] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showReplyPicker, setShowReplyPicker] = useState(false);
   const insets = useSafeAreaInsets();
   
   // Refs for managing typing indicator timeouts
@@ -149,41 +153,52 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
     }
 
     try {
-      console.log('[MessageInput] Picking image...');
-      
       // Pick image from gallery
       const imageUri = await pickImage();
       
       if (!imageUri) {
         // User cancelled
-        console.log('[MessageInput] User cancelled image picker');
         return;
       }
 
       setIsUploadingImage(true);
 
-      // Check original size for logging
-      const originalSize = await getImageSize(imageUri);
-      console.log('[MessageInput] Original image size:', formatFileSize(originalSize));
-
       // Compress image to max 1MB
-      console.log('[MessageInput] Compressing image...');
       const compressedUri = await compressImage(imageUri);
-      
-      const compressedSize = await getImageSize(compressedUri);
-      console.log('[MessageInput] Compressed image size:', formatFileSize(compressedSize));
 
       // Send image
-      console.log('[MessageInput] Sending image...');
       await onSendImage(compressedUri);
-      
-      console.log('[MessageInput] Image sent successfully');
     } catch (error) {
       console.error('[MessageInput] Failed to send image:', error);
       Alert.alert('Error', 'Failed to send image. Please try again.');
     } finally {
       setIsUploadingImage(false);
     }
+  };
+
+  /**
+   * Handle AI Draft button press
+   * 
+   * WHY: Let users generate AI draft responses
+   * WHAT: Opens ReplyPicker modal with last received message
+   */
+  const handleAIDraftPress = () => {
+    if (!lastReceivedMessage) {
+      console.log('[MessageInput] No message to respond to');
+      return;
+    }
+    setShowReplyPicker(true);
+  };
+
+  /**
+   * Handle draft selection
+   * 
+   * WHY: User selected a draft response
+   * WHAT: Inserts draft into text input for editing
+   */
+  const handleSelectDraft = (draft: string) => {
+    setText(draft);
+    setShowReplyPicker(false);
   };
 
   /**
@@ -221,6 +236,20 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
           <Text style={styles.uploadingText}>Uploading image...</Text>
         </View>
       )}
+
+      {/* AI Draft button */}
+      <TouchableOpacity
+        style={styles.aiButton}
+        onPress={handleAIDraftPress}
+        disabled={disabled || isUploadingImage}
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons
+          name="robot-outline"
+          size={24}
+          color={disabled || isUploadingImage ? '#999' : '#25D366'}
+        />
+      </TouchableOpacity>
 
       {/* Image picker button */}
       <TouchableOpacity
@@ -266,6 +295,15 @@ export function MessageInput({ onSend, onSendImage, disabled = false, chatId, us
           color={text.trim() && !disabled && !isUploadingImage ? '#fff' : '#999'}
         />
       </TouchableOpacity>
+
+      {/* Reply Picker Modal */}
+      <ReplyPicker
+        visible={showReplyPicker}
+        onDismiss={() => setShowReplyPicker(false)}
+        onSelectDraft={handleSelectDraft}
+        chatId={chatId}
+        messageText={lastReceivedMessage || 'No message to respond to'}
+      />
     </View>
   );
 }
@@ -299,6 +337,14 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 14,
     color: '#666',
+  },
+  aiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
   },
   imageButton: {
     width: 44,
