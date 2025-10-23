@@ -16,6 +16,7 @@ import * as admin from 'firebase-admin';
 import { onMessageCreated } from './notifications';
 import { categorizeMessage, recategorizeMessage } from './categorization';
 import { draftResponse } from './draftResponse';
+import { detectFAQ } from './faqDetection';
 
 /**
  * Initialize Firebase Admin SDK
@@ -34,6 +35,9 @@ export { onMessageCreated };
  * Export AI categorization functions (includes sentiment & collaboration scoring)
  */
 export { categorizeMessage, recategorizeMessage };
+ * Export FAQ detection functions
+ */
+export { detectFAQ };
 
 /**
  * Export AI response drafting functions
