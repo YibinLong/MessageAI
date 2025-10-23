@@ -114,14 +114,12 @@ export default function NewChatScreen() {
 
     try {
       setLoading(true);
-      console.log('[NewChat] Loading users...');
 
       const allUsers = await getAllUsers();
       
       // Filter out current user
       const otherUsers = allUsers.filter(u => u.id !== currentUser.id);
       
-      console.log(`[NewChat] Loaded ${otherUsers.length} users`);
       setUsers(otherUsers);
       setFilteredUsers(otherUsers);
       
@@ -174,12 +172,8 @@ export default function NewChatScreen() {
     setCreating(true);
 
     try {
-      console.log('[NewChat] Creating chat with user:', otherUser.id);
-
       // Create or get existing chat
       const chat = await createOrGetChat(currentUser.id, otherUser.id);
-
-      console.log('[NewChat] Chat created/retrieved:', chat.id);
 
       // Navigate to chat screen
       router.push(`/(app)/chat/${chat.id}`);

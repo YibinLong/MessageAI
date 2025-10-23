@@ -67,8 +67,6 @@ export async function sendMessage(
   const messageId = uuid.v4() as string;
   const timestamp = Timestamp.now();
   
-  console.log('[MessageService] Sending message:', { chatId, messageId, text: text.substring(0, 50) });
-  
   // Create message object
   const message: Message = {
     id: messageId,
@@ -98,7 +96,6 @@ export async function sendMessage(
     
     try {
       await insertMessage(sqliteMessage);
-      console.log('[MessageService] Message saved to SQLite (optimistic)');
     } catch (sqliteError) {
       console.warn('[MessageService] SQLite insert failed, continuing without cache:', sqliteError);
       // Don't throw - app can work without SQLite cache
@@ -121,11 +118,8 @@ export async function sendMessage(
         type: 'text',
       });
       
-      console.log('[MessageService] Message uploaded to Firestore');
-      
       // Update to 'sent' after successful upload
       await updateDoc(messageRef, { status: 'sent' });
-      console.log('[MessageService] Message status updated to sent');
       
       // 3. Update status to 'sent' in SQLite
       try {
@@ -136,8 +130,6 @@ export async function sendMessage(
       
       // 4. Update chat's last message
       await updateChatLastMessage(chatId, text, senderId);
-      
-      console.log('[MessageService] Message sent successfully');
     } catch (uploadError) {
       console.error('[MessageService] Failed to upload to Firestore:', uploadError);
       // Don't throw - message is saved locally and will retry later
@@ -181,16 +173,11 @@ export async function sendImageMessage(
   const messageId = uuid.v4() as string;
   const timestamp = Timestamp.now();
   
-  console.log('[MessageService] Sending image message:', { chatId, messageId });
-  
   try {
     // 1. Upload image to Firebase Storage first
     // WHY: We need the download URL before creating the message
-    console.log('[MessageService] Uploading image to Storage...');
     const mediaURL = await uploadChatImage(senderId, messageId, imageUri);
     const mediaPath = `media/${senderId}/${messageId}.jpg`;
-    
-    console.log('[MessageService] Image uploaded:', mediaURL);
     
     // 2. Create message object
     const message: Message = {
@@ -222,7 +209,6 @@ export async function sendImageMessage(
     
     try {
       await insertMessage(sqliteMessage);
-      console.log('[MessageService] Image message saved to SQLite (optimistic)');
     } catch (sqliteError) {
       console.warn('[MessageService] SQLite insert failed, continuing without cache:', sqliteError);
     }
@@ -243,11 +229,8 @@ export async function sendImageMessage(
         mediaPath,
       });
       
-      console.log('[MessageService] Image message uploaded to Firestore');
-      
       // Update to 'sent' after successful upload
       await updateDoc(messageRef, { status: 'sent' });
-      console.log('[MessageService] Image message status updated to sent');
       
       // 5. Update SQLite status
       try {
@@ -258,8 +241,6 @@ export async function sendImageMessage(
       
       // 6. Update chat's last message (show "📷 Image" as preview)
       await updateChatLastMessage(chatId, '📷 Image', senderId);
-      
-      console.log('[MessageService] Image message sent successfully');
     } catch (uploadError) {
       console.error('[MessageService] Failed to upload message to Firestore:', uploadError);
       // Message is saved locally and will retry later
@@ -289,8 +270,6 @@ export function subscribeToMessages(
   chatId: string,
   callback: (messages: Message[]) => void
 ): () => void {
-  console.log('[MessageService] Subscribing to messages for chat:', chatId);
-  
   // Query last 50 messages, ordered by timestamp
   const messagesRef = collection(db, 'chats', chatId, 'messages');
   const q = query(
@@ -303,8 +282,6 @@ export function subscribeToMessages(
   const unsubscribe = onSnapshot(
     q,
     async (snapshot) => {
-      console.log('[MessageService] Received snapshot with', snapshot.docs.length, 'messages');
-      
       const messages: Message[] = [];
       
       // Process each message
@@ -396,20 +373,14 @@ export async function updateMessageStatus(
  */
 export async function retryUnsentMessages(chatId?: string): Promise<number> {
   try {
-    console.log('[MessageService] Retrying unsent messages', chatId ? `for chat ${chatId}` : '');
-    
     // Query messages with status 'sending' using the queued operation
     const unsentMessages = await getMessagesByStatus('sending', chatId);
-    
-    console.log('[MessageService] Found', unsentMessages.length, 'unsent messages');
     
     let successCount = 0;
     
     // Retry each message
     for (const sqliteMsg of unsentMessages) {
       try {
-        console.log('[MessageService] Retrying message:', sqliteMsg.id);
-        
         // Upload to Firestore using setDoc with our ID
         const messageRef = doc(db, 'chats', sqliteMsg.chatId, 'messages', sqliteMsg.id);
         await setDoc(messageRef, {
@@ -425,7 +396,6 @@ export async function retryUnsentMessages(chatId?: string): Promise<number> {
         
         // Update to 'sent' after successful upload
         await updateDoc(messageRef, { status: 'sent' });
-        console.log('[MessageService] Retry message status updated to sent');
         
         // Update status to 'sent' in SQLite
         try {
@@ -438,14 +408,12 @@ export async function retryUnsentMessages(chatId?: string): Promise<number> {
         await updateChatLastMessage(sqliteMsg.chatId, sqliteMsg.text, sqliteMsg.senderId);
         
         successCount++;
-        console.log('[MessageService] Message retry successful:', sqliteMsg.id);
       } catch (error) {
         console.error('[MessageService] Failed to retry message:', sqliteMsg.id, error);
         // Continue with next message even if this one fails
       }
     }
     
-    console.log('[MessageService] Retry complete:', successCount, 'of', unsentMessages.length, 'succeeded');
     return successCount;
   } catch (error) {
     console.error('[MessageService] Failed to retry unsent messages:', error);
@@ -470,8 +438,6 @@ export async function loadMessagesFromCache(
   limitCount: number = 50
 ): Promise<Message[]> {
   try {
-    console.log('[MessageService] Loading messages from cache for chat:', chatId);
-    
     const sqliteMessages = await getMessagesByChat(chatId, limitCount);
     
     // Convert SQLite messages to Message objects
@@ -487,7 +453,6 @@ export async function loadMessagesFromCache(
       mediaURL: sqliteMsg.mediaURL,
     }));
     
-    console.log('[MessageService] Loaded', messages.length, 'messages from cache');
     return messages;
   } catch (error) {
     console.error('[MessageService] Failed to load messages from cache:', error);
@@ -510,16 +475,12 @@ export async function loadMessagesFromCache(
  */
 export async function markChatAsRead(chatId: string, userId: string): Promise<void> {
   try {
-    console.log('[MessageService] Marking chat as read:', { chatId, userId });
-    
     // Update Firestore: Set this user's unread count to 0
     // We use a map structure: { unreadCounts: { userId1: 0, userId2: 5 } }
     const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
       [`unreadCounts.${userId}`]: 0,
     });
-    
-    console.log('[MessageService] Chat marked as read in Firestore');
     
     // Update SQLite cache
     // Note: SQLite stores only the current user's unread count
@@ -530,7 +491,6 @@ export async function markChatAsRead(chatId: string, userId: string): Promise<vo
     if (chat) {
       chat.unreadCount = 0;
       await upsertChat(chat);
-      console.log('[MessageService] Chat marked as read in SQLite');
     }
   } catch (error) {
     console.error('[MessageService] Failed to mark chat as read:', error);
@@ -559,8 +519,6 @@ export async function markMessagesAsDelivered(
   userId: string
 ): Promise<void> {
   try {
-    console.log('[MessageService] Marking messages as delivered:', { chatId, count: messageIds.length });
-    
     // Update each message in Firestore
     for (const messageId of messageIds) {
       try {
@@ -584,8 +542,6 @@ export async function markMessagesAsDelivered(
           // Update SQLite cache
           const { updateMessageStatus: updateSQLiteStatus } = await import('./sqlite');
           await updateSQLiteStatus(messageId, 'delivered');
-          
-          console.log('[MessageService] Message marked as delivered:', messageId);
         }
       } catch (error) {
         console.warn('[MessageService] Failed to mark message as delivered:', messageId, error);
@@ -618,8 +574,6 @@ export async function markMessagesAsRead(
   userId: string
 ): Promise<void> {
   try {
-    console.log('[MessageService] Marking messages as read:', { chatId, userId });
-    
     // Query messages in this chat
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(50));
@@ -654,14 +608,11 @@ export async function markMessagesAsRead(
         await updateMessageReadBy(messageId, newReadBy);
         
         updatedCount++;
-        console.log('[MessageService] Message marked as read:', messageId);
       } catch (error) {
         console.warn('[MessageService] Failed to mark message as read:', docSnap.id, error);
         // Continue with other messages
       }
     }
-    
-    console.log('[MessageService] Marked', updatedCount, 'messages as read');
   } catch (error) {
     console.error('[MessageService] Failed to mark messages as read:', error);
     // Don't throw - this is not critical

@@ -122,8 +122,6 @@ export default function ChatScreen() {
       try {
         if (!chatId || !currentUser) return;
 
-        console.log('[ChatScreen] Loading chat data for:', chatId);
-
         // Get chat metadata
         const chatData = await getChatById(chatId);
         if (!chatData) {
@@ -165,7 +163,6 @@ export default function ChatScreen() {
         // Mark chat as read (reset unread count for current user)
         // WHY: User is now viewing this chat, so it's no longer unread
         await markChatAsRead(chatId, currentUser.id);
-        console.log('[ChatScreen] Chat marked as read');
       } catch (err) {
         console.error('[ChatScreen] Failed to load chat data:', err);
         setError('Failed to load chat');
@@ -183,15 +180,12 @@ export default function ChatScreen() {
    */
   useEffect(() => {
     if (!otherUser || chat?.type === 'group') return; // Only for 1:1 chats
-
-    console.log('[ChatScreen] Setting up presence listener for:', otherUser.id);
     
     const unsubscribe = listenToPresence(otherUser.id, (presence) => {
       setOtherUserPresence(presence);
     });
 
     return () => {
-      console.log('[ChatScreen] Cleaning up presence listener');
       unsubscribe();
     };
   }, [otherUser, chat]);
@@ -260,7 +254,6 @@ export default function ChatScreen() {
       if (!chatId) return;
 
       try {
-        console.log('[ChatScreen] Loading cached messages');
         const cachedMessages = await loadMessagesFromCache(chatId);
         setMessages(cachedMessages);
         setLoading(false);
@@ -282,10 +275,7 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!chatId || !currentUser) return;
 
-    console.log('[ChatScreen] Setting up real-time message listener');
-
     const unsubscribe = subscribeToMessages(chatId, async (newMessages) => {
-      console.log('[ChatScreen] Received', newMessages.length, 'messages from Firestore');
       setMessages(newMessages);
       
       // Mark incoming messages as delivered FIRST
@@ -313,7 +303,6 @@ export default function ChatScreen() {
 
     // Cleanup listener on unmount
     return () => {
-      console.log('[ChatScreen] Cleaning up message listener');
       unsubscribe();
     };
   }, [chatId, currentUser]);
@@ -326,12 +315,7 @@ export default function ChatScreen() {
    */
   useEffect(() => {
     if (isConnected && chatId) {
-      console.log('[ChatScreen] Network reconnected, retrying unsent messages');
-      retryUnsentMessages(chatId).then((count) => {
-        if (count > 0) {
-          console.log('[ChatScreen] Successfully retried', count, 'messages');
-        }
-      });
+      retryUnsentMessages(chatId);
     }
   }, [isConnected, chatId]);
 
@@ -344,8 +328,6 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       if (currentUser && chatId) {
-        console.log('[ChatScreen] Screen focused, marking messages and chat as read');
-        
         // Mark individual messages as read
         markMessagesAsRead(chatId, currentUser.id).catch((error) => {
           console.warn('[ChatScreen] Failed to mark messages as read on focus:', error);
@@ -376,20 +358,16 @@ export default function ChatScreen() {
       return;
     }
 
-    console.log('[ChatScreen] Subscribing to typing indicator for:', otherUser.id);
-
     const unsubscribe = subscribeToUserTyping(
       chatId,
       otherUser.id,
       (isTyping) => {
-        console.log('[ChatScreen] Other user typing status:', isTyping);
         setIsOtherUserTyping(isTyping);
       }
     );
 
     // Cleanup listener on unmount
     return () => {
-      console.log('[ChatScreen] Cleaning up typing listener');
       unsubscribe();
     };
   }, [chatId, otherUser, currentUser, chat]);
@@ -407,8 +385,6 @@ export default function ChatScreen() {
     }
 
     try {
-      console.log('[ChatScreen] Sending message:', text.substring(0, 50));
-
       // Send message (saves to SQLite immediately, uploads to Firestore in background)
       await sendMessage(chatId, text, currentUser.id);
 
@@ -434,12 +410,8 @@ export default function ChatScreen() {
     }
 
     try {
-      console.log('[ChatScreen] Sending image message');
-
       // Send image message (compresses, uploads to Storage, creates message)
       await sendImageMessage(chatId, imageUri, currentUser.id);
-
-      console.log('[ChatScreen] Image message sent successfully');
     } catch (err) {
       console.error('[ChatScreen] Failed to send image:', err);
       throw err; // Re-throw so MessageInput can show error
@@ -453,7 +425,6 @@ export default function ChatScreen() {
    * WHAT: Opens full-screen image viewer
    */
   const handleImagePress = useCallback((imageUrl: string) => {
-    console.log('[ChatScreen] Opening image viewer:', imageUrl);
     setSelectedImageUrl(imageUrl);
     setImageViewerVisible(true);
   }, []);
@@ -566,6 +537,22 @@ export default function ChatScreen() {
     );
   }
 
+  /**
+   * Get last received message (not sent by current user)
+   * 
+   * WHY: AI Draft needs context of what message to respond to
+   * WHAT: Returns text of most recent message from other participant
+   */
+  const getLastReceivedMessage = (): string | undefined => {
+    if (!messages || !currentUser) return undefined;
+    
+    // Find most recent message NOT sent by current user
+    const receivedMessages = messages.filter(msg => msg.senderId !== currentUser.id);
+    if (receivedMessages.length === 0) return undefined;
+    
+    return receivedMessages[0].text; // Messages are sorted newest first
+  };
+
   return (
     <>
       {/* Header is updated dynamically via useLayoutEffect above */}
@@ -602,6 +589,7 @@ export default function ChatScreen() {
             onSendImage={handleSendImage}
             chatId={chatId as string}
             userId={currentUser.id}
+            lastReceivedMessage={getLastReceivedMessage()}
           />
         )}
       </KeyboardAvoidingView>

@@ -40,23 +40,18 @@ const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB in bytes
  */
 export async function compressImage(uri: string): Promise<string> {
   try {
-    console.log('[ImageCompression] Starting compression for:', uri);
-    
     // Get original image size (handling deprecated API gracefully)
     let originalSize = 0;
     try {
       const imageInfo = await FileSystem.getInfoAsync(uri, { size: true });
       originalSize = (imageInfo as any).size || 0;
-      console.log('[ImageCompression] Original size:', Math.round(originalSize / 1024), 'KB');
     } catch (sizeError) {
       // If getting size fails (deprecated API), assume image needs compression
-      console.log('[ImageCompression] Could not get original size, will compress anyway');
       originalSize = MAX_IMAGE_SIZE + 1; // Force compression
     }
     
     // If image is already small enough, return as-is
     if (originalSize <= MAX_IMAGE_SIZE && originalSize > 0) {
-      console.log('[ImageCompression] Image already small enough, no compression needed');
       return uri;
     }
     
@@ -90,8 +85,6 @@ export async function compressImage(uri: string): Promise<string> {
           },
         },
       ];
-      
-      console.log('[ImageCompression] Image will be resized from', imageAsset.width, 'x', imageAsset.height, 'to', maxWidth, 'x', Math.round(imageAsset.height * scaleFactor));
     }
     
     // Iterative compression: reduce quality until we reach target size
@@ -101,7 +94,6 @@ export async function compressImage(uri: string): Promise<string> {
     
     while (currentSize > MAX_IMAGE_SIZE && attempts < maxAttempts) {
       attempts++;
-      console.log('[ImageCompression] Compression attempt', attempts, 'with quality', quality);
       
       // Compress image with current quality setting
       // For first attempt, use original URI. For subsequent attempts, use the previously compressed URI
@@ -128,8 +120,6 @@ export async function compressImage(uri: string): Promise<string> {
         currentSize = MAX_IMAGE_SIZE - 1;
       }
       
-      console.log('[ImageCompression] New size:', Math.round(currentSize / 1024), 'KB');
-      
       // If we've reached target size, we're done
       if (currentSize <= MAX_IMAGE_SIZE) {
         break;
@@ -140,7 +130,6 @@ export async function compressImage(uri: string): Promise<string> {
       
       // Don't go below 0.3 quality (too degraded)
       if (quality < 0.3) {
-        console.warn('[ImageCompression] Reached minimum quality threshold');
         break;
       }
       
@@ -148,21 +137,11 @@ export async function compressImage(uri: string): Promise<string> {
       resizeAction = [];
     }
     
-    // Log final result
-    const compressionRatio = ((1 - currentSize / originalSize) * 100).toFixed(1);
-    console.log('[ImageCompression] Compression complete:', {
-      originalSize: Math.round(originalSize / 1024) + 'KB',
-      compressedSize: Math.round(currentSize / 1024) + 'KB',
-      ratio: compressionRatio + '%',
-      attempts,
-    });
-    
     return compressedUri;
   } catch (error) {
     console.error('[ImageCompression] Compression failed:', error);
     // If compression fails, return original URI
     // WHY: Better to upload large image than fail completely
-    console.warn('[ImageCompression] Returning original URI due to compression failure');
     return uri;
   }
 }
