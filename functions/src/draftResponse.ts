@@ -9,6 +9,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { callOpenAI } from './aiService';
 import { retrieveRelevantMessages } from './ragService';
+import { checkAndIncrementRateLimit } from './rateLimiter';
 
 /**
  * Draft Response
@@ -28,6 +29,10 @@ export const draftResponse = functions.https.onCall(async (data, context) => {
 
     const { chatId, messageText } = data;
     const userId = context.auth.uid;
+
+    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
+    // WHY: Prevent abuse and control OpenAI costs
+    await checkAndIncrementRateLimit(userId);
 
     if (!chatId || !messageText) {
       throw new functions.https.HttpsError(
