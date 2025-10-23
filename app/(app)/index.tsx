@@ -14,8 +14,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
-import { Appbar, FAB, Text, ActivityIndicator, Menu } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView } from 'react-native';
+import { Appbar, FAB, Text, ActivityIndicator, Menu, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { signOut } from '../../services/auth';
@@ -48,6 +48,10 @@ export default function ChatListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   
+  // AI Filter State
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSentiment, setSelectedSentiment] = useState<string>('all');
+  
   // Ref to track previous connection state for auto-refresh
   const wasOfflineRef = useRef(false);
   
@@ -67,8 +71,6 @@ export default function ChatListScreen() {
   useEffect(() => {
     if (!currentUser) return;
 
-    console.log('[ChatList] Loading chats for user:', currentUser.id);
-
     // Load from SQLite first (instant)
     loadChatsFromCache();
 
@@ -77,11 +79,9 @@ export default function ChatListScreen() {
 
     // Cleanup listener on unmount
     return () => {
-      console.log('[ChatList] Cleaning up chat listener');
       unsubscribe();
       
       // Clean up all presence listeners
-      console.log('[ChatList] Cleaning up presence listeners');
       const listeners = presenceListenersRef.current;
       listeners.forEach(unsubscribe => unsubscribe());
       listeners.clear();
@@ -96,7 +96,6 @@ export default function ChatListScreen() {
    */
   useEffect(() => {
     if (isConnected && wasOfflineRef.current && currentUser) {
-      console.log('[ChatList] Network reconnected, auto-refreshing chats...');
       handleRefresh();
       wasOfflineRef.current = false;
     } else if (!isConnected) {
@@ -112,7 +111,6 @@ export default function ChatListScreen() {
    */
   const loadChatsFromCache = async () => {
     try {
-      console.log('[ChatList] Loading chats from SQLite cache...');
       const cachedChats = await getSQLiteChats();
       
       // Convert SQLite chats to Chat objects
@@ -129,7 +127,6 @@ export default function ChatListScreen() {
         unreadCount: sqliteChat.unreadCount || 0,
       }));
 
-      console.log(`[ChatList] Loaded ${chatsFromCache.length} chats from cache`);
       setChats(chatsFromCache);
       
       // Load user profiles for cached chats
@@ -151,7 +148,6 @@ export default function ChatListScreen() {
    * @param updatedChats - Latest chats from Firestore
    */
   const handleChatsUpdate = async (updatedChats: Chat[]) => {
-    console.log(`[ChatList] Received ${updatedChats.length} chats from Firestore`);
     setChats(updatedChats);
     setLoading(false);
     setRefreshing(false);
@@ -190,8 +186,6 @@ export default function ChatListScreen() {
       
       existingListeners.set(userId, unsubscribe);
     });
-    
-    console.log(`[ChatList] Set up ${existingListeners.size} presence listeners`);
   };
 
   /**
@@ -216,8 +210,6 @@ export default function ChatListScreen() {
         });
       });
 
-      console.log(`[ChatList] Loading ${userIds.size} user profiles...`);
-
       // Fetch each user profile
       const newProfiles = new Map(userProfiles);
       for (const userId of userIds) {
@@ -235,7 +227,6 @@ export default function ChatListScreen() {
       }
 
       setUserProfiles(newProfiles);
-      console.log(`[ChatList] Loaded ${newProfiles.size} user profiles`);
       
       // Set up presence listeners for all users
       setupPresenceListeners(Array.from(userIds));
@@ -255,15 +246,12 @@ export default function ChatListScreen() {
 
     setRefreshing(true);
     try {
-      console.log('[ChatList] Refreshing chats...');
       // Force fetch from Firestore (bypasses cache)
       const latestChats = await getUserChats(currentUser.id);
       setChats(latestChats);
       
       // Reload user profiles
       await loadUserProfiles(latestChats);
-      
-      console.log('[ChatList] Refresh complete');
     } catch (error) {
       console.error('[ChatList] Refresh failed:', error);
       Alert.alert('Error', 'Failed to refresh chats');
@@ -327,8 +315,6 @@ export default function ChatListScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('[ChatList] Signing out...');
-              
               // Update user presence to offline in Realtime Database
               // WHY: This ensures other users see the green dot disappear immediately
               if (currentUser) {
@@ -340,8 +326,6 @@ export default function ChatListScreen() {
               
               // Clear Zustand store
               clearUser();
-              
-              console.log('[ChatList] Signed out successfully');
             } catch (error: any) {
               console.error('[ChatList] Sign out failed:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -399,6 +383,54 @@ export default function ChatListScreen() {
   };
 
   /**
+   * Filter chats based on selected category and sentiment
+   * 
+   * WHY: Allow users to filter chats by AI-detected category/sentiment
+   * WHAT: Filters chat list and sorts high-priority chats to top
+   */
+  const getFilteredChats = (): Chat[] => {
+    let filtered = [...chats];
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      if (selectedCategory === 'priority') {
+        // High priority = collaboration score > 7
+        filtered = filtered.filter(chat => 
+          (chat.lastMessage as any)?.aiCollaborationScore > 7
+        );
+      } else {
+        filtered = filtered.filter(chat => 
+          (chat.lastMessage as any)?.aiCategory === selectedCategory
+        );
+      }
+    }
+
+    // Filter by sentiment
+    if (selectedSentiment !== 'all') {
+      filtered = filtered.filter(chat => 
+        (chat.lastMessage as any)?.aiSentiment === selectedSentiment
+      );
+    }
+
+    // Sort: high-priority chats first, then by update time
+    return filtered.sort((a, b) => {
+      const aScore = (a.lastMessage as any)?.aiCollaborationScore || 0;
+      const bScore = (b.lastMessage as any)?.aiCollaborationScore || 0;
+      const aIsPriority = aScore > 7;
+      const bIsPriority = bScore > 7;
+
+      if (aIsPriority && !bIsPriority) return -1;
+      if (!aIsPriority && bIsPriority) return 1;
+
+      // Same priority level, sort by time
+      // Handle null/undefined updatedAt fields
+      const aTime = a.updatedAt?.toMillis?.() || 0;
+      const bTime = b.updatedAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+  };
+
+  /**
    * Render empty state
    * 
    * WHY: Provide feedback when no chats exist
@@ -452,6 +484,60 @@ export default function ChatListScreen() {
       {/* Connection Banner */}
       <ConnectionBanner />
 
+      {/* AI Filter Chips */}
+      {!loading && chats.length > 0 && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterContainer}
+          contentContainerStyle={styles.filterContent}
+        >
+          <Chip
+            selected={selectedCategory === 'all'}
+            onPress={() => setSelectedCategory('all')}
+            style={styles.filterChip}
+          >
+            All
+          </Chip>
+          <Chip
+            selected={selectedCategory === 'priority'}
+            onPress={() => setSelectedCategory('priority')}
+            style={styles.filterChip}
+            icon="star"
+          >
+            Priority
+          </Chip>
+          <Chip
+            selected={selectedCategory === 'fan'}
+            onPress={() => setSelectedCategory('fan')}
+            style={styles.filterChip}
+          >
+            Fan
+          </Chip>
+          <Chip
+            selected={selectedCategory === 'business'}
+            onPress={() => setSelectedCategory('business')}
+            style={styles.filterChip}
+          >
+            Business
+          </Chip>
+          <Chip
+            selected={selectedCategory === 'spam'}
+            onPress={() => setSelectedCategory('spam')}
+            style={styles.filterChip}
+          >
+            Spam
+          </Chip>
+          <Chip
+            selected={selectedCategory === 'urgent'}
+            onPress={() => setSelectedCategory('urgent')}
+            style={styles.filterChip}
+          >
+            Urgent
+          </Chip>
+        </ScrollView>
+      )}
+
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
@@ -463,7 +549,7 @@ export default function ChatListScreen() {
       {/* Chat List */}
       {!loading && (
         <FlatList
-          data={chats}
+          data={getFilteredChats()}
           keyExtractor={(item) => item.id}
           renderItem={renderChatItem}
           ListEmptyComponent={renderEmptyState}
@@ -474,7 +560,7 @@ export default function ChatListScreen() {
               colors={['#25D366']}
             />
           }
-          contentContainerStyle={chats.length === 0 ? styles.emptyList : undefined}
+          contentContainerStyle={getFilteredChats().length === 0 ? styles.emptyList : undefined}
         />
       )}
 
@@ -493,6 +579,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  filterContainer: {
+    maxHeight: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  filterContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  filterChip: {
+    marginHorizontal: 4,
   },
   loadingContainer: {
     flex: 1,
