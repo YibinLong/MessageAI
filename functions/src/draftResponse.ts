@@ -30,16 +30,19 @@ export const draftResponse = functions.https.onCall(async (data, context) => {
     const { chatId, messageText } = data;
     const userId = context.auth.uid;
 
-    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
-    // WHY: Prevent abuse and control OpenAI costs
-    await checkAndIncrementRateLimit(userId);
-
+    // Validate inputs FIRST before consuming rate limit quota
+    // WHY: Don't penalize users for invalid requests that won't use AI
     if (!chatId || !messageText) {
       throw new functions.https.HttpsError(
         'invalid-argument',
         'chatId and messageText are required'
       );
     }
+
+    // ✅ RATE LIMITING: Check if user is within hourly limit (100 calls/hour)
+    // WHY: Prevent abuse and control OpenAI costs
+    // WHEN: Only check AFTER validating inputs (don't waste quota on invalid requests)
+    await checkAndIncrementRateLimit(userId);
 
     functions.logger.info('Drafting response', {
       userId,
