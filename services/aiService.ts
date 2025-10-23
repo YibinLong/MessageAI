@@ -46,6 +46,14 @@ export async function requestDraftResponse(
     };
   } catch (error: any) {
     console.error('[AIService] Draft response error:', error);
+    
+    // ✅ Handle rate limiting errors with user-friendly message
+    // WHY: Give users clear feedback about why their request failed
+    if (error.code === 'functions/resource-exhausted') {
+      // Error message already includes time remaining from Cloud Function
+      throw new Error(error.message);
+    }
+    
     throw new Error(`Failed to generate drafts: ${error.message}`);
   }
 }

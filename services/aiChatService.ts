@@ -32,6 +32,14 @@ export async function sendMessage(
     return data.response;
   } catch (error: any) {
     console.error('[AIChatService] Failed to send message:', error);
+    
+    // ✅ Handle rate limiting errors with user-friendly message
+    // WHY: Give users clear feedback about hourly limit
+    if (error.code === 'functions/resource-exhausted') {
+      // Error message already includes time remaining from Cloud Function
+      throw new Error(error.message);
+    }
+    
     throw new Error(error.message || 'Failed to send message');
   }
 }
