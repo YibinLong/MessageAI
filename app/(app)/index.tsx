@@ -53,9 +53,6 @@ export default function ChatListScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSentiment, setSelectedSentiment] = useState<string>('all');
   
-  // Agent State
-  const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
-  
   // Ref to track previous connection state for auto-refresh
   const wasOfflineRef = useRef(false);
   
@@ -107,32 +104,6 @@ export default function ChatListScreen() {
     }
   }, [isConnected, currentUser]);
 
-  /**
-   * Listen to pending suggestions count for badge
-   * 
-   * WHY: Show badge on FAQ Settings to indicate pending actions
-   * WHAT: Real-time listener for pending suggested actions
-   */
-  useEffect(() => {
-    if (!currentUser) return;
-
-    // Store unsubscribe function to clean up on unmount
-    let unsubscribe: (() => void) | undefined;
-
-    // Import agentService dynamically to avoid circular deps
-    import('../../services/agentService').then(({ listenToSuggestedActions }) => {
-      unsubscribe = listenToSuggestedActions(currentUser.id, (actions) => {
-        setPendingSuggestionsCount(actions.length);
-      });
-    });
-
-    // Return cleanup function that calls unsubscribe if it exists
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [currentUser]);
 
   /**
    * Load chats from SQLite cache
@@ -550,22 +521,17 @@ export default function ChatListScreen() {
 
             <Divider style={styles.menuDivider} />
 
-            {/* Smart Replies (AI Agent) */}
+            {/* AI Assistant */}
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
-                router.push('/(app)/smart-replies');
+                router.push('/(app)/ai-chat');
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="sparkles-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Smart Replies</Text>
-              {pendingSuggestionsCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{pendingSuggestionsCount}</Text>
-                </View>
-              )}
+              <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
+              <Text style={styles.menuText}>AI Assistant</Text>
             </TouchableOpacity>
 
             <Divider style={styles.menuDivider} />
@@ -829,20 +795,5 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: '#e0e0e0',
-  },
-  badge: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    marginLeft: 8,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
 });
