@@ -72,8 +72,8 @@ export function MessageInput({
   const setText = controlledOnChangeText !== undefined ? controlledOnChangeText : setInternalText;
   
   // Refs for managing typing indicator timeouts
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
   /**
@@ -245,8 +245,8 @@ export function MessageInput({
    */
   useEffect(() => {
     return () => {
-      // Clear typing indicator
-      if (isTypingRef.current) {
+      // Clear typing indicator (only if chatId and userId are provided)
+      if (isTypingRef.current && chatId && userId) {
         stopTyping(chatId, userId);
       }
       
@@ -336,14 +336,16 @@ export function MessageInput({
         />
       </TouchableOpacity>
 
-      {/* Reply Picker Modal */}
-      <ReplyPicker
-        visible={showReplyPicker}
-        onDismiss={() => setShowReplyPicker(false)}
-        onSelectDraft={handleSelectDraft}
-        chatId={chatId}
-        messageText={lastReceivedMessage || 'No message to respond to'}
-      />
+      {/* Reply Picker Modal (only render if chatId exists) */}
+      {chatId && (
+        <ReplyPicker
+          visible={showReplyPicker}
+          onDismiss={() => setShowReplyPicker(false)}
+          onSelectDraft={handleSelectDraft}
+          chatId={chatId}
+          messageText={lastReceivedMessage || 'No message to respond to'}
+        />
+      )}
     </View>
   );
 }

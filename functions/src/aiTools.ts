@@ -198,8 +198,6 @@ export async function getMessageStats(
         .collection('messages')
         .where('timestamp', '>=', cutoffTimestamp)
         .where('senderId', '!=', userId) // Only count messages TO the user
-        .orderBy('senderId')
-        .orderBy('timestamp', 'desc')
         .get();
 
       for (const messageDoc of messagesSnapshot.docs) {
