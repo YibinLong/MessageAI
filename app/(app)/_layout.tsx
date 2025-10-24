@@ -99,7 +99,7 @@ export default function AppLayout() {
         <Stack.Screen
           name="ai-chat"
           options={{
-            title: 'AI Chat',
+            title: 'AI Assistant',
           }}
         />
         <Stack.Screen
