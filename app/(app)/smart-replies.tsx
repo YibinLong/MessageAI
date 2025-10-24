@@ -8,7 +8,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import {
-  Appbar,
   Text,
   Switch,
   Button,
@@ -144,12 +143,6 @@ export default function SmartRepliesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Smart Replies" />
-      </Appbar.Header>
-
       <ScrollView style={styles.content}>
         {/* Agent Settings Section */}
         <View style={styles.section}>

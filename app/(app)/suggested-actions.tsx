@@ -8,7 +8,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, RefreshControl, Image } from 'react-native';
 import {
-  Appbar,
   Text,
   ActivityIndicator,
   Card,
@@ -347,12 +346,6 @@ export default function SuggestedActionsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Suggested Actions" />
-      </Appbar.Header>
-
       {/* Loading State */}
       {loading && (
         <View style={styles.loadingContainer}>

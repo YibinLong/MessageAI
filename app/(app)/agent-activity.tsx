@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Appbar, Text, ActivityIndicator, Chip, Card } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, Card } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { listenToAgentLogs } from '../../services/agentService';
@@ -162,12 +162,6 @@ export default function AgentActivityScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Agent Activity" />
-      </Appbar.Header>
-
       {/* Filter Chips */}
       <View style={styles.filterContainer}>
         <Chip
