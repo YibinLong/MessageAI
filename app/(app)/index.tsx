@@ -14,13 +14,11 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView, Modal, TouchableOpacity, Pressable } from 'react-native';
-import { Appbar, FAB, Text, ActivityIndicator, Chip, Divider } from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, FlatList, RefreshControl, ScrollView, Alert } from 'react-native';
+import { FAB, Text, ActivityIndicator, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
-import { signOut } from '../../services/auth';
-import { updateUserPresence, getUserById } from '../../services/userService';
+import { getUserById } from '../../services/userService';
 import { listenToUserChats, getUserChats } from '../../services/chatService';
 import { getAllChats as getSQLiteChats } from '../../services/sqlite';
 import { Chat, User } from '../../types';
@@ -28,7 +26,7 @@ import { ChatListItem } from '../../components/ChatListItem';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { Timestamp } from 'firebase/firestore';
-import { listenToPresence, PresenceData, updatePresence } from '../../services/presenceService';
+import { listenToPresence, PresenceData } from '../../services/presenceService';
 import { firestoreChatDataToChat } from '../../utils/firestoreConverters';
 import { timestampToMillis } from '../../utils/dateUtils';
 
@@ -40,7 +38,7 @@ import { timestampToMillis } from '../../utils/dateUtils';
  */
 export default function ChatListScreen() {
   const router = useRouter();
-  const { user: currentUser, clearUser } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
   const { isConnected } = useNetworkStatus();
   
   // State
@@ -49,7 +47,6 @@ export default function ChatListScreen() {
   const [userPresence, setUserPresence] = useState<Map<string, PresenceData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
   
   // AI Filter State
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -296,61 +293,6 @@ export default function ChatListScreen() {
   };
 
   /**
-   * Handle edit profile
-   * 
-   * WHY: Allow users to update their profile
-   * WHAT: Navigate to edit profile screen
-   */
-  const handleEditProfile = () => {
-    setMenuVisible(false);
-    router.push('/(app)/edit-profile');
-  };
-
-  /**
-   * Handle sign out
-   * 
-   * WHY: Allow users to log out
-   * WHAT: Signs out from Firebase and clears local state
-   */
-  const handleSignOut = async () => {
-    setMenuVisible(false);
-    
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Update user presence to offline in Realtime Database
-              // WHY: This ensures other users see the green dot disappear immediately
-              if (currentUser) {
-                await updatePresence(currentUser.id, false);
-              }
-              
-              // Sign out from Firebase
-              await signOut();
-              
-              // Clear Zustand store
-              clearUser();
-            } catch (error: any) {
-              console.error('[ChatList] Sign out failed:', error);
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
-  /**
    * Get the other user in a 1:1 chat
    * 
    * WHY: Need to display other user's name and photo
@@ -462,82 +404,6 @@ export default function ChatListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.Content title="MessageAI" />
-        <Appbar.Action
-          icon="dots-vertical"
-          onPress={() => setMenuVisible(true)}
-        />
-      </Appbar.Header>
-
-      {/* Custom Menu Modal (replaces buggy Paper Menu) */}
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={styles.menuContainer}>
-            {/* Edit Profile */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleEditProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="person-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Edit Profile</Text>
-            </TouchableOpacity>
-
-            <Divider style={styles.menuDivider} />
-
-            {/* FAQ Settings */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/faq-settings');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="help-circle-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>FAQ Settings</Text>
-            </TouchableOpacity>
-
-            <Divider style={styles.menuDivider} />
-
-            {/* AI Assistant */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/ai-chat');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>AI Assistant</Text>
-            </TouchableOpacity>
-
-            <Divider style={styles.menuDivider} />
-
-            {/* Sign Out */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleSignOut}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={22} color="#F44336" style={styles.menuIcon} />
-              <Text style={[styles.menuText, styles.menuTextDanger]}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
-
       {/* Connection Banner */}
       <ConnectionBanner />
 
@@ -555,6 +421,8 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'all'}
             onPress={() => handleCategoryChange('all')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'all' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             All
           </Chip>
@@ -563,6 +431,8 @@ export default function ChatListScreen() {
             onPress={() => handleCategoryChange('priority')}
             icon="star"
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'priority' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Priority
           </Chip>
@@ -570,6 +440,8 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'fan'}
             onPress={() => handleCategoryChange('fan')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'fan' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Fan
           </Chip>
@@ -577,6 +449,8 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'business'}
             onPress={() => handleCategoryChange('business')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'business' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Business
           </Chip>
@@ -584,6 +458,8 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'spam'}
             onPress={() => handleCategoryChange('spam')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'spam' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Spam
           </Chip>
@@ -591,6 +467,8 @@ export default function ChatListScreen() {
             selected={selectedCategory === 'urgent'}
             onPress={() => handleCategoryChange('urgent')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedCategory === 'urgent' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Urgent
           </Chip>
@@ -603,6 +481,8 @@ export default function ChatListScreen() {
             selected={selectedSentiment === 'all'}
             onPress={() => setSelectedSentiment('all')}
             showSelectedCheck={true}
+            style={[styles.chip, selectedSentiment === 'all' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             All
           </Chip>
@@ -611,6 +491,8 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('positive')}
             icon="emoticon-happy-outline"
             showSelectedCheck={true}
+            style={[styles.chip, selectedSentiment === 'positive' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Positive
           </Chip>
@@ -619,6 +501,8 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('neutral')}
             icon="emoticon-neutral-outline"
             showSelectedCheck={true}
+            style={[styles.chip, selectedSentiment === 'neutral' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Neutral
           </Chip>
@@ -627,6 +511,8 @@ export default function ChatListScreen() {
             onPress={() => setSelectedSentiment('negative')}
             icon="emoticon-sad-outline"
             showSelectedCheck={true}
+            style={[styles.chip, selectedSentiment === 'negative' && styles.chipSelected]}
+            textStyle={styles.chipText}
           >
             Negative
           </Chip>
@@ -732,44 +618,17 @@ const styles = StyleSheet.create({
     bottom: 16,
     backgroundColor: '#128c7e',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 56, // Below app bar
-    paddingRight: 8,
+  chip: {
+    marginRight: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+    minHeight: 32,
+    backgroundColor: '#f0f0f0',
   },
-  menuContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    minWidth: 200,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+  chipSelected: {
+    backgroundColor: '#C8E6C9', // Light green (WhatsApp style)
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  menuIcon: {
-    marginRight: 16,
-    width: 24,
-  },
-  menuText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  menuTextDanger: {
-    color: '#F44336',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
+  chipText: {
+    lineHeight: 20,
   },
 });

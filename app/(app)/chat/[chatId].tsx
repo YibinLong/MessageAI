@@ -67,17 +67,17 @@ function HeaderTitle({ title, subtitle }: HeaderTitleProps) {
 const headerStyles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000',
+    color: '#e9edef',
   },
   subtitle: {
     fontSize: 12,
-    color: '#666',
+    color: '#d1d5d7',
     marginTop: 2,
   },
 });
