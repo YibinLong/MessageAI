@@ -31,7 +31,10 @@ import {
   insertMessage, 
   getMessagesByChat, 
   getMessagesByStatus,
-  updateMessageStatus as updateMessageStatusSQLite
+  updateMessageStatus as updateMessageStatusSQLite,
+  upsertChat,
+  getAllChats,
+  updateMessageReadBy
 } from './sqlite';
 import { updateChatLastMessage } from './chatService';
 import { Message, SQLiteMessage } from '../types';
@@ -465,7 +468,6 @@ export async function markChatAsRead(chatId: string, userId: string): Promise<vo
     
     // Update SQLite cache
     // Note: SQLite stores only the current user's unread count
-    const { upsertChat, getAllChats } = await import('./sqlite');
     const sqliteChats = await getAllChats();
     const chat = sqliteChats.find(c => c.id === chatId);
     
@@ -521,8 +523,7 @@ export async function markMessagesAsDelivered(
           });
           
           // Update SQLite cache
-          const { updateMessageStatus: updateSQLiteStatus } = await import('./sqlite');
-          await updateSQLiteStatus(messageId, 'delivered');
+          await updateMessageStatusSQLite(messageId, 'delivered');
         }
       } catch (error) {
         console.warn('[MessageService] Failed to mark message as delivered:', messageId, error);
@@ -585,7 +586,6 @@ export async function markMessagesAsRead(
         });
         
         // Update SQLite cache
-        const { updateMessageReadBy } = await import('./sqlite');
         await updateMessageReadBy(messageId, newReadBy);
         
         updatedCount++;

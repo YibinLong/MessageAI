@@ -9,6 +9,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { collection, query, orderBy, limit, onSnapshot, getDocs, where } from 'firebase/firestore';
 import { db, functions } from './firebase';
 import { AgentLog, SuggestedAction } from '../types';
+import { sendMessage } from './messageService';
 
 /**
  * Run the AI agent for a user
@@ -205,8 +206,7 @@ export async function approveSuggestion(
     const approveFn = httpsCallable(functions, 'approveSuggestion');
     await approveFn({ userId, actionId });
     
-    // Send the message (import dynamically to avoid circular dependency)
-    const { sendMessage } = await import('./messageService');
+    // Send the message
     await sendMessage(chatId, text, userId);
   } catch (error) {
     console.error('[AgentService] Failed to approve suggestion:', error);
