@@ -15,6 +15,13 @@ MessageAI is a production-ready messaging platform with:
 - **Push notifications** for background/closed app states
 - **AI-powered features** for content creator workflows
 
+## 📲 Try It Now
+
+**Download the Android APK:**
+[MessageAI APK Download](https://expo.dev/accounts/yibinlong/projects/messageai/builds/0ab54e9d-1cdc-4125-ae59-724eec9b6dd6)
+
+Simply download and install on your Android device to try the app immediately!
+
 ## 🛠️ Tech Stack
 
 - **Frontend:** React Native (Expo), TypeScript, React Native Paper
