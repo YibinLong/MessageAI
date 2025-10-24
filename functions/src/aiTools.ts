@@ -134,7 +134,7 @@ ${messages}
 Summary:`;
 
     const response = await callOpenAI(prompt, {
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       temperature: 0.5,
       max_tokens: 200,
     });

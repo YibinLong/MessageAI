@@ -279,7 +279,7 @@ You have access to their message data and can:
 Respond helpfully and conversationally. If you need more specific information from them, ask clarifying questions.`;
 
     const gptResponse = await callOpenAI(prompt, {
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       temperature: 0.7,
       max_tokens: 300,
     });

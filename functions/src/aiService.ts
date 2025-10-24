@@ -48,11 +48,11 @@ export async function callOpenAI(
   try {
     functions.logger.info('Calling OpenAI', { 
       promptLength: prompt.length,
-      model: options?.model || 'gpt-4',
+      model: options?.model || 'gpt-4.1',
     });
 
     const response = await openai.chat.completions.create({
-      model: options?.model || 'gpt-4',
+      model: options?.model || 'gpt-4.1',
       messages: [
         { role: 'user', content: prompt }
       ],
@@ -110,7 +110,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     });
 
     const response = await openai.embeddings.create({
-      model: 'text-embedding-ada-002',
+      model: 'text-embedding-3-small',
       input: text,
     });
 

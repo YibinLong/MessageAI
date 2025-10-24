@@ -103,7 +103,7 @@ Respond in JSON format:
 
       // Call OpenAI
       const response = await callOpenAI(prompt, {
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         temperature: 0.2,
         max_tokens: 100,
       });

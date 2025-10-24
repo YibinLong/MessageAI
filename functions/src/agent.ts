@@ -368,7 +368,7 @@ Respond in JSON format:
 }`;
 
   const response = await callOpenAI(prompt, {
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     temperature: 0.3,
     max_tokens: 150,
   });
@@ -444,7 +444,7 @@ Respond in JSON format:
 }`;
 
     const response = await callOpenAI(prompt, {
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       temperature: 0.2,
       max_tokens: 100,
     });
@@ -487,7 +487,7 @@ Draft a warm, friendly, concise response (1-2 sentences max). Be appreciative an
 Respond with ONLY the message text, no JSON or formatting.`;
 
     const response = await callOpenAI(prompt, {
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       temperature: 0.7,
       max_tokens: 100,
     });
