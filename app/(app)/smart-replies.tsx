@@ -18,7 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { getAgentSettings, updateAgentSettings } from '../../services/faqService';
-import { listenToSuggestedActions } from '../../services/agentService';
+import { listenToSuggestedActions, runAgent } from '../../services/agentService';
 import { SuggestedAction } from '../../types';
 
 /**
@@ -107,7 +107,6 @@ export default function SmartRepliesScreen() {
     try {
       setRunningAgent(true);
 
-      const { runAgent } = await import('../../services/agentService');
       const result = await runAgent(user.id);
 
       // Auto-navigate to suggestions if any were created
