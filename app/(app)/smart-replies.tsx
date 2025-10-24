@@ -153,13 +153,6 @@ export default function SmartRepliesScreen() {
       <ScrollView style={styles.content}>
         {/* Agent Settings Section */}
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            AI Agent
-          </Text>
-          <Text variant="bodyMedium" style={styles.sectionDescription}>
-            Let AI analyze your messages and suggest smart replies automatically
-          </Text>
-
           <Card style={styles.card}>
             <Card.Content>
               <View style={styles.settingRow}>
@@ -183,10 +176,6 @@ export default function SmartRepliesScreen() {
 
         {/* Agent Controls Section */}
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            Agent Controls
-          </Text>
-
           <Button
             mode="contained"
             onPress={handleRunAgent}
@@ -219,10 +208,6 @@ export default function SmartRepliesScreen() {
 
         {/* Pending Suggestions Section */}
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            Pending Suggestions
-          </Text>
-
           <Card style={styles.card}>
             <Card.Content>
               {loading ? (
