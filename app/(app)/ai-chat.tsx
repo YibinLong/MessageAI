@@ -174,11 +174,6 @@ export default function AIChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="AI Assistant" />
-      </Appbar.Header>
 
       {/* Persistent Suggested Queries Bar */}
       <View style={styles.suggestionsBar}>
@@ -208,7 +203,7 @@ export default function AIChatScreen() {
       {/* Loading State */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#25D366" />
+          <ActivityIndicator size="large" color="#128c7e" />
           <Text style={styles.loadingText}>Loading chat...</Text>
         </View>
       )}
@@ -298,7 +293,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   userBubble: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
     borderBottomRightRadius: 4,
   },
   aiBubble: {
@@ -344,7 +339,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   emptyTitle: {
-    color: '#25D366',
+    color: '#128c7e',
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',

@@ -95,7 +95,7 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isSent
             <View style={styles.imageContainer}>
               {imageLoading && !imageError && (
                 <View style={styles.imagePlaceholder}>
-                  <ActivityIndicator size="large" color="#25D366" />
+                  <ActivityIndicator size="large" color="#128c7e" />
                 </View>
               )}
               {imageError ? (

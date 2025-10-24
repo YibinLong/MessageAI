@@ -21,7 +21,7 @@ export default function AppLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#25D366', // WhatsApp green
+          backgroundColor: '#128c7e', // WhatsApp green
         },
         headerTintColor: '#fff',
         headerTitleStyle: {

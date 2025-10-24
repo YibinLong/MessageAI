@@ -61,31 +61,49 @@ export function getMessageStatusIcon(status: string): StatusIconConfig {
  * @returns Formatted time string
  */
 export function formatMessageTime(timestamp: Timestamp): string {
-  const date = timestamp.toDate();
-  const now = new Date();
-  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-  // For messages less than 24 hours old, show relative time
-  if (diffInHours < 24) {
-    if (diffInHours < 0.016) {
-      // Less than 1 minute
-      return 'Just now';
+  try {
+    // Validate that timestamp is a proper Firestore Timestamp
+    if (!timestamp || typeof timestamp.toDate !== 'function') {
+      console.warn('[messageUtils] Invalid timestamp object:', timestamp);
+      return 'Invalid date';
     }
-    return formatDistanceToNow(date, { addSuffix: true });
-  }
 
-  // For yesterday's messages
-  if (isYesterday(date)) {
-    return `Yesterday at ${format(date, 'h:mm a')}`;
-  }
+    const date = timestamp.toDate();
+    
+    // Validate the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('[messageUtils] Invalid date from timestamp:', timestamp);
+      return 'Invalid date';
+    }
 
-  // For today (shouldn't happen since we check diffInHours < 24, but just in case)
-  if (isToday(date)) {
-    return format(date, 'h:mm a');
-  }
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
-  // For older messages
-  return format(date, 'MMM d at h:mm a');
+    // For messages less than 24 hours old, show relative time
+    if (diffInHours < 24) {
+      if (diffInHours < 0.016) {
+        // Less than 1 minute
+        return 'Just now';
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+
+    // For yesterday's messages
+    if (isYesterday(date)) {
+      return `Yesterday at ${format(date, 'h:mm a')}`;
+    }
+
+    // For today (shouldn't happen since we check diffInHours < 24, but just in case)
+    if (isToday(date)) {
+      return format(date, 'h:mm a');
+    }
+
+    // For older messages - use more explicit format string
+    return `${format(date, 'MMM d')} ${format(date, 'h:mm a')}`;
+  } catch (error) {
+    console.error('[messageUtils] Error formatting timestamp:', error, timestamp);
+    return 'Error';
+  }
 }
 
 /**

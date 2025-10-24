@@ -268,7 +268,7 @@ export function MessageInput({
       {/* Upload progress indicator */}
       {isUploadingImage && (
         <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="small" color="#25D366" />
+          <ActivityIndicator size="small" color="#128c7e" />
           <Text style={styles.uploadingText}>Uploading image...</Text>
         </View>
       )}
@@ -284,7 +284,7 @@ export function MessageInput({
           <MaterialCommunityIcons
             name="robot-outline"
             size={24}
-            color={disabled || isUploadingImage ? '#999' : '#25D366'}
+            color={disabled || isUploadingImage ? '#999' : '#128c7e'}
           />
         </TouchableOpacity>
       )}
@@ -300,7 +300,7 @@ export function MessageInput({
           <Ionicons
             name="image-outline"
             size={24}
-            color={disabled || isUploadingImage ? '#999' : '#25D366'}
+            color={disabled || isUploadingImage ? '#999' : '#128c7e'}
           />
         </TouchableOpacity>
       )}
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#25D366', // WhatsApp green
+    backgroundColor: '#128c7e', // WhatsApp green
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 2, // Shadow on Android

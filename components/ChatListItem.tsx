@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   badge: {
-    backgroundColor: '#25D366', // WhatsApp green
+    backgroundColor: '#128c7e', // WhatsApp green
     color: '#fff',
   },
 });

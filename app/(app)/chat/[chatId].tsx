@@ -66,6 +66,7 @@ function HeaderTitle({ title, subtitle }: HeaderTitleProps) {
 
 const headerStyles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -506,23 +507,16 @@ export default function ChatScreen() {
   /**
    * Render empty state when no messages exist
    *
-   * WHY: FlatList is inverted, so we need to counter-flip the empty state
-   * WHAT: Wraps empty state in a container that re-inverts the view
+   * WHY: FlatList needs an empty component, but we don't want to show any text
+   * WHAT: Returns null (empty view)
    */
-  const renderEmptyState = useCallback(() => (
-    <View style={styles.emptyWrapper}>
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No messages yet</Text>
-        <Text style={styles.emptySubtext}>Send a message to start the conversation</Text>
-      </View>
-    </View>
-  ), []);
+  const renderEmptyState = useCallback(() => null, []);
 
   // Loading state
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#25D366" />
+        <ActivityIndicator size="large" color="#128c7e" />
         <Text style={styles.loadingText}>Loading messages...</Text>
       </View>
     );
@@ -560,7 +554,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 106 : 0}
       >
         {/* Connection status banner */}
         <ConnectionBanner />
@@ -635,26 +629,28 @@ const styles = StyleSheet.create({
   emptyWrapper: {
     transform: [{ scaleY: -1 }],
     width: '100%',
+    direction: 'ltr', // Force left-to-right layout direction
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 100,
+    direction: 'ltr', // Force left-to-right layout direction
   },
   emptyText: {
     fontSize: 18,
     color: '#666',
     fontWeight: '600',
-    writingDirection: 'ltr', // Force left-to-right text direction
     textAlign: 'center',
+    direction: 'ltr', // Force left-to-right layout direction
   },
   emptySubtext: {
     fontSize: 14,
     color: '#999',
     marginTop: 8,
-    writingDirection: 'ltr', // Force left-to-right text direction
     textAlign: 'center',
+    direction: 'ltr', // Force left-to-right layout direction
   },
 });
 

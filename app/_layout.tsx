@@ -15,7 +15,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { useEffect, useState, useRef } from 'react';
 import { initDatabase } from '../services/sqlite';
-import { View, Text, ActivityIndicator, Platform, AppState, AppStateStatus } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, AppState, AppStateStatus, LogBox } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuthStore } from '../stores/authStore';
@@ -29,6 +29,17 @@ import {
 } from '../services/notificationService';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+/**
+ * Suppress non-critical warnings
+ * 
+ * WHY: expo-keep-awake (transitive dependency) throws non-critical errors that don't affect functionality
+ * WHAT: Ignore the "Unable to activate keep awake" warning
+ */
+LogBox.ignoreLogs([
+  'Unable to activate keep awake',
+  'keep awake',
+]);
 
 /**
  * Root Layout Component
@@ -192,7 +203,7 @@ export default function RootLayout() {
   if (!isReady || useAuthStore.getState().loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#25D366" />
+        <ActivityIndicator size="large" color="#128c7e" />
         <Text style={{ marginTop: 16, color: '#666' }}>Initializing MessageAI...</Text>
         {error && <Text style={{ marginTop: 8, color: 'red' }}>{error}</Text>}
       </View>

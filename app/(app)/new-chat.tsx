@@ -265,11 +265,6 @@ export default function NewChatScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="New Chat" />
-      </Appbar.Header>
 
       {/* Connection Banner */}
       <ConnectionBanner />
@@ -302,7 +297,7 @@ export default function NewChatScreen() {
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#25D366" />
+          <ActivityIndicator size="large" color="#128c7e" />
           <Text style={styles.loadingText}>Loading users...</Text>
         </View>
       )}
@@ -321,7 +316,7 @@ export default function NewChatScreen() {
       {/* Creating indicator overlay */}
       {creating && (
         <View style={styles.creatingOverlay}>
-          <ActivityIndicator size="large" color="#25D366" />
+          <ActivityIndicator size="large" color="#128c7e" />
           <Text style={styles.creatingText}>Creating chat...</Text>
         </View>
       )}
@@ -342,12 +337,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   groupIcon: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
   },
   groupTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#25D366',
+    color: '#128c7e',
   },
   searchBar: {
     margin: 16,
@@ -356,6 +351,7 @@ const styles = StyleSheet.create({
   avatarContainer: {
     justifyContent: 'center',
     marginRight: 12,
+    marginLeft: 16,
     position: 'relative',
   },
   onlineIndicator: {
@@ -365,7 +361,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
     borderWidth: 2,
     borderColor: '#fff',
   },

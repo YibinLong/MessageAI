@@ -554,7 +554,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'all'}
             onPress={() => handleCategoryChange('all')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             All
@@ -562,7 +561,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'priority'}
             onPress={() => handleCategoryChange('priority')}
-            style={styles.filterChip}
             icon="star"
             showSelectedCheck={true}
           >
@@ -571,7 +569,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'fan'}
             onPress={() => handleCategoryChange('fan')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             Fan
@@ -579,7 +576,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'business'}
             onPress={() => handleCategoryChange('business')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             Business
@@ -587,7 +583,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'spam'}
             onPress={() => handleCategoryChange('spam')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             Spam
@@ -595,7 +590,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedCategory === 'urgent'}
             onPress={() => handleCategoryChange('urgent')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             Urgent
@@ -608,7 +602,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedSentiment === 'all'}
             onPress={() => setSelectedSentiment('all')}
-            style={styles.filterChip}
             showSelectedCheck={true}
           >
             All
@@ -616,7 +609,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedSentiment === 'positive'}
             onPress={() => setSelectedSentiment('positive')}
-            style={styles.filterChip}
             icon="emoticon-happy-outline"
             showSelectedCheck={true}
           >
@@ -625,7 +617,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedSentiment === 'neutral'}
             onPress={() => setSelectedSentiment('neutral')}
-            style={styles.filterChip}
             icon="emoticon-neutral-outline"
             showSelectedCheck={true}
           >
@@ -634,7 +625,6 @@ export default function ChatListScreen() {
           <Chip
             selected={selectedSentiment === 'negative'}
             onPress={() => setSelectedSentiment('negative')}
-            style={styles.filterChip}
             icon="emoticon-sad-outline"
             showSelectedCheck={true}
           >
@@ -646,7 +636,7 @@ export default function ChatListScreen() {
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#25D366" />
+          <ActivityIndicator size="large" color="#128c7e" />
           <Text style={styles.loadingText}>Loading chats...</Text>
         </View>
       )}
@@ -662,7 +652,7 @@ export default function ChatListScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={['#25D366']}
+              colors={['#128c7e']}
             />
           }
           contentContainerStyle={filteredChats.length === 0 ? styles.emptyList : undefined}
@@ -702,9 +692,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     fontWeight: '600',
   },
-  filterChip: {
-    marginHorizontal: 4,
-  },
   filterDivider: {
     width: 1,
     height: 32,
@@ -728,7 +715,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   emptyTitle: {
-    color: '#25D366',
+    color: '#128c7e',
     fontWeight: 'bold',
     marginBottom: 8,
   },
@@ -743,7 +730,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 16,
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
   },
   modalOverlay: {
     flex: 1,

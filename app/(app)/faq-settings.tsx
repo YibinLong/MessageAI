@@ -289,7 +289,11 @@ export default function FAQSettingsScreen() {
       </Card.Content>
       <Card.Actions>
         <Button onPress={() => handleEditFAQ(item)}>Edit</Button>
-        <Button onPress={() => handleDeleteFAQ(item)} textColor="#F44336">
+        <Button 
+          onPress={() => handleDeleteFAQ(item)} 
+          textColor="#E53935"
+          mode="text"
+        >
           Delete
         </Button>
       </Card.Actions>
@@ -318,11 +322,6 @@ export default function FAQSettingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App Bar */}
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="FAQ Settings" />
-      </Appbar.Header>
 
       {/* Auto-Respond Toggle */}
       <View style={styles.settingRow}>
@@ -335,14 +334,14 @@ export default function FAQSettingsScreen() {
         <Switch
           value={autoRespond}
           onValueChange={handleToggleAutoRespond}
-          color="#25D366"
+          color="#128c7e"
         />
       </View>
 
       {/* Loading State */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#25D366" />
+          <ActivityIndicator size="large" color="#128c7e" />
           <Text style={styles.loadingText}>Loading FAQs...</Text>
         </View>
       )}
@@ -455,7 +454,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   emptyTitle: {
-    color: '#25D366',
+    color: '#128c7e',
     fontWeight: 'bold',
     marginBottom: 8,
   },
@@ -465,7 +464,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
   },
   faqCard: {
     marginBottom: 12,
@@ -494,7 +493,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 16,
-    backgroundColor: '#25D366',
+    backgroundColor: '#128c7e',
   },
   input: {
     marginBottom: 12,
