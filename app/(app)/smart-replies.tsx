@@ -237,7 +237,7 @@ export default function SmartRepliesScreen() {
               )}
             </Card.Content>
             {pendingSuggestions.length > 0 && (
-              <Card.Actions>
+              <Card.Actions style={styles.cardActions}>
                 <Button
                   mode="contained"
                   onPress={handleReviewSuggestions}
@@ -297,6 +297,9 @@ const styles = StyleSheet.create({
   card: {
     elevation: 2,
   },
+  cardActions: {
+    justifyContent: 'center',
+  },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -332,6 +335,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#25D366',
     textAlign: 'center',
+    paddingTop: 8,
   },
   countLabel: {
     color: '#666',
