@@ -48,11 +48,11 @@ export async function callOpenAI(
   try {
     functions.logger.info('Calling OpenAI', { 
       promptLength: prompt.length,
-      model: options?.model || 'gpt-4.1',
+      model: options?.model || 'gpt-4o-mini',
     });
 
     const response = await openai.chat.completions.create({
-      model: options?.model || 'gpt-4.1',
+      model: options?.model || 'gpt-4o-mini',
       messages: [
         { role: 'user', content: prompt }
       ],

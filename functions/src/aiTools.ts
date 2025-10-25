@@ -192,16 +192,22 @@ export async function getMessageStats(
 
     // Count messages in each chat
     for (const chatDoc of chatsSnapshot.docs) {
+      // WHY: Query only by timestamp to avoid dual inequality filter issue
+      // WHAT: Filter senderId in-memory instead of in the query
       const messagesSnapshot = await admin.firestore()
         .collection('chats')
         .doc(chatDoc.id)
         .collection('messages')
         .where('timestamp', '>=', cutoffTimestamp)
-        .where('senderId', '!=', userId) // Only count messages TO the user
         .get();
 
       for (const messageDoc of messagesSnapshot.docs) {
         const data = messageDoc.data();
+
+        // Skip messages sent BY the user (only count messages TO the user)
+        if (data.senderId === userId) {
+          continue;
+        }
 
         // Skip if filtering by category and doesn't match
         if (category && data.aiCategory !== category) {

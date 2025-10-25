@@ -113,7 +113,7 @@ async function processUserMessage(userId: string, message: string): Promise<stri
   const lowerMessage = message.toLowerCase();
 
   try {
-    // Check for specific intents
+    // Check for specific intents (ordered from most specific to least specific)
 
     // INTENT: Search for messages
     if (lowerMessage.includes('search') || lowerMessage.includes('find')) {
@@ -131,6 +131,52 @@ async function processUserMessage(userId: string, message: string): Promise<stri
         });
         return response;
       }
+    }
+
+    // INTENT: List urgent/important/priority messages (specific keyword)
+    if (lowerMessage.includes('urgent') || lowerMessage.includes('important') || lowerMessage.includes('priority')) {
+      const chats = await listHighPriorityChats(userId, 5);
+
+      if (chats.length === 0) {
+        return "You don't have any high-priority messages at the moment. Great job staying on top of things! 🎉";
+      }
+
+      let response = `🌟 High-Priority Chats (Collaboration Score > 7):\n\n`;
+      chats.forEach((chat, i) => {
+        response += `${i + 1}. ${chat.chatName} (Score: ${chat.score}/10)\n`;
+        response += `   Category: ${chat.category}\n`;
+        response += `   "${chat.lastMessage.substring(0, 100)}..."\n\n`;
+      });
+
+      return response;
+    }
+
+    // INTENT: Show business opportunities (specific keyword)
+    if (lowerMessage.includes('business') || lowerMessage.includes('collab') || lowerMessage.includes('partnership')) {
+      const days = extractTimePeriod(message);
+      const stats = await getMessageStats(userId, 'business', days);
+      const highPriority = await listHighPriorityChats(userId, 3);
+
+      // Format time period
+      let timePeriod = 'the last 7 days';
+      if (days === 1) timePeriod = 'today';
+      else if (days === 7) timePeriod = 'this week';
+      else if (days === 30) timePeriod = 'this month';
+      else timePeriod = `the last ${days} days`;
+
+      let response = `💼 Business Opportunities\n\n`;
+      response += `You have ${stats.categoryCounts.business || 0} business messages in ${timePeriod}.\n\n`;
+
+      if (highPriority.length > 0) {
+        response += `Top Opportunities:\n`;
+        highPriority.forEach((chat, i) => {
+          response += `${i + 1}. ${chat.chatName} (Score: ${chat.score}/10)\n`;
+        });
+      } else {
+        response += `No high-priority business opportunities at the moment.`;
+      }
+
+      return response;
     }
 
     // INTENT: Summarize conversations
@@ -177,7 +223,10 @@ async function processUserMessage(userId: string, message: string): Promise<stri
       return response;
     }
 
-    // INTENT: Get statistics
+    // INTENT: Get statistics (generic - check after specific intents)
+    // NOTE: This shows message COUNTS, not the actual messages.
+    // Queries like "Show positive messages" will display counts by sentiment.
+    // To show actual messages, we'd need a separate "list messages" intent.
     if (lowerMessage.includes('stats') || lowerMessage.includes('how many') || lowerMessage.includes('count')) {
       const category = extractCategory(message);
       const days = extractTimePeriod(message);
@@ -203,64 +252,18 @@ async function processUserMessage(userId: string, message: string): Promise<stri
         timePeriod = `Last ${days} Days`;
       }
 
-      let response = `📊 **Your DM Statistics (${timePeriod})**\n\n`;
+      let response = `📊 Your DM Statistics (${timePeriod})\n\n`;
       response += `Total messages: ${stats.totalMessages}\n\n`;
-      response += `**By Category:**\n`;
+      response += `By Category:\n`;
       response += `• Fan messages: ${stats.categoryCounts.fan || 0}\n`;
       response += `• Business: ${stats.categoryCounts.business || 0}\n`;
       response += `• Urgent: ${stats.categoryCounts.urgent || 0}\n`;
       response += `• Spam: ${stats.categoryCounts.spam || 0}\n\n`;
-      response += `**High Priority:** ${stats.highPriorityCount} opportunities\n\n`;
-      response += `**Sentiment:**\n`;
+      response += `High Priority: ${stats.highPriorityCount} opportunities\n\n`;
+      response += `Sentiment:\n`;
       response += `• Positive: ${stats.sentimentCounts.positive || 0}\n`;
       response += `• Neutral: ${stats.sentimentCounts.neutral || 0}\n`;
       response += `• Negative: ${stats.sentimentCounts.negative || 0}`;
-
-      return response;
-    }
-
-    // INTENT: List urgent/important/priority messages
-    if (lowerMessage.includes('urgent') || lowerMessage.includes('important') || lowerMessage.includes('priority')) {
-      const chats = await listHighPriorityChats(userId, 5);
-
-      if (chats.length === 0) {
-        return "You don't have any high-priority messages at the moment. Great job staying on top of things! 🎉";
-      }
-
-      let response = `🌟 **High-Priority Chats** (Collaboration Score > 7):\n\n`;
-      chats.forEach((chat, i) => {
-        response += `${i + 1}. **${chat.chatName}** (Score: ${chat.score}/10)\n`;
-        response += `   Category: ${chat.category}\n`;
-        response += `   "${chat.lastMessage.substring(0, 100)}..."\n\n`;
-      });
-
-      return response;
-    }
-
-    // INTENT: Show business opportunities
-    if (lowerMessage.includes('business') || lowerMessage.includes('collab') || lowerMessage.includes('partnership')) {
-      const days = extractTimePeriod(message);
-      const stats = await getMessageStats(userId, 'business', days);
-      const highPriority = await listHighPriorityChats(userId, 3);
-
-      // Format time period
-      let timePeriod = 'the last 7 days';
-      if (days === 1) timePeriod = 'today';
-      else if (days === 7) timePeriod = 'this week';
-      else if (days === 30) timePeriod = 'this month';
-      else timePeriod = `the last ${days} days`;
-
-      let response = `💼 **Business Opportunities**\n\n`;
-      response += `You have ${stats.categoryCounts.business || 0} business messages in ${timePeriod}.\n\n`;
-
-      if (highPriority.length > 0) {
-        response += `**Top Opportunities:**\n`;
-        highPriority.forEach((chat, i) => {
-          response += `${i + 1}. ${chat.chatName} (Score: ${chat.score}/10)\n`;
-        });
-      } else {
-        response += `No high-priority business opportunities at the moment.`;
-      }
 
       return response;
     }
@@ -313,11 +316,21 @@ function extractSearchTerm(message: string): string | null {
   const lowerMessage = message.toLowerCase();
   if (lowerMessage.includes('search ')) {
     const parts = message.split(/search /i);
-    if (parts[1]) return parts[1].trim();
+    if (parts[1]) {
+      let term = parts[1].trim();
+      // Remove "for" at the beginning
+      term = term.replace(/^for\s+/i, '');
+      return term;
+    }
   }
   if (lowerMessage.includes('find ')) {
     const parts = message.split(/find /i);
-    if (parts[1]) return parts[1].trim();
+    if (parts[1]) {
+      let term = parts[1].trim();
+      // Remove common filler words at the beginning
+      term = term.replace(/^(messages?\s+)?(about|for|containing)\s+/i, '');
+      return term;
+    }
   }
 
   return null;
@@ -369,17 +382,17 @@ function extractTimePeriod(message: string): number {
     return 30;
   }
 
-  // Last X hours
-  const hoursMatch = lowerMessage.match(/last\s+(\d+)\s+hour/);
+  // Last X hours (handle "the last hour", "last 1 hour", "in the last hour")
+  const hoursMatch = lowerMessage.match(/(?:in\s+)?(?:the\s+)?last\s+(\d+)?\s*hours?/);
   if (hoursMatch) {
-    const hours = parseInt(hoursMatch[1]);
+    const hours = hoursMatch[1] ? parseInt(hoursMatch[1]) : 1; // Default to 1 if no number
     return hours / 24; // Convert to days
   }
 
   // Last X minutes
-  const minutesMatch = lowerMessage.match(/last\s+(\d+)\s+minute/);
+  const minutesMatch = lowerMessage.match(/(?:in\s+)?(?:the\s+)?last\s+(\d+)?\s*minutes?/);
   if (minutesMatch) {
-    const minutes = parseInt(minutesMatch[1]);
+    const minutes = minutesMatch[1] ? parseInt(minutesMatch[1]) : 1; // Default to 1 if no number
     return minutes / (24 * 60); // Convert to days
   }
 
