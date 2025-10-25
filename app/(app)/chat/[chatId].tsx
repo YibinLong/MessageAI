@@ -192,10 +192,15 @@ export default function ChatScreen() {
   }, [otherUser, chat]);
 
   /**
-   * Update header title dynamically with presence info
+   * Update header title dynamically with presence info and staleness detection
    * 
-   * WHY: Need to show chat name and presence status reactively
+   * WHY: Need to show chat name and presence status reactively with instant offline detection
    * WHAT: Updates navigation header whenever chat, presence, or profiles change
+   * 
+   * CLIENT-SIDE STALENESS CHECK:
+   * - Even if Firebase says user is online, check lastHeartbeat timestamp
+   * - If heartbeat is older than 4 seconds, show as offline
+   * - Provides instant visual feedback without waiting for Firebase listener
    */
   useLayoutEffect(() => {
     if (!chat) return;
@@ -211,9 +216,22 @@ export default function ChatScreen() {
       // 1:1 chat: show user name and presence
       title = otherUser?.displayName || 'Chat';
       
-      // Format presence status inline (can't use getPresenceStatus before it's defined)
+      // Format presence status with client-side staleness detection
       if (otherUserPresence) {
-        if (otherUserPresence.online) {
+        // CLIENT-SIDE STALENESS CHECK
+        // WHY: Don't wait for Firebase listener to update, check heartbeat immediately
+        // WHAT: If lastHeartbeat exists and is older than 4s, treat as offline
+        let isActuallyOnline = otherUserPresence.online;
+        
+        if (isActuallyOnline && otherUserPresence.lastHeartbeat) {
+          const heartbeatAge = Date.now() - otherUserPresence.lastHeartbeat;
+          if (heartbeatAge > 4000) { // 4 second threshold
+            console.log(`[ChatScreen] Stale heartbeat detected: ${heartbeatAge}ms old, showing offline`);
+            isActuallyOnline = false;
+          }
+        }
+        
+        if (isActuallyOnline) {
           subtitle = 'Online';
         } else {
           try {

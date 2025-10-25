@@ -24,6 +24,7 @@ interface ChatListItemProps {
   otherUser?: User; // The other participant in the chat (for 1:1 chats)
   onPress: () => void;
   isOnline?: boolean; // Whether the other user is online (for 1:1 chats)
+  isContentCreator?: boolean; // Whether current user is a content creator (to show AI features)
 }
 
 /**
@@ -39,7 +40,7 @@ interface ChatListItemProps {
  * @param otherUser - User object for the other participant (for displaying name/photo)
  * @param onPress - Handler for when the item is tapped
  */
-export const ChatListItem = React.memo(function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline }: ChatListItemProps) {
+export const ChatListItem = React.memo(function ChatListItem({ chat, currentUserId, otherUser, onPress, isOnline, isContentCreator = true }: ChatListItemProps) {
   /**
    * Get display name for the chat
    * 
@@ -228,8 +229,8 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
             </Text>
           )}
           
-          {/* Category Badge */}
-          {aiCategory && (
+          {/* Category Badge - Only show for content creators */}
+          {isContentCreator && aiCategory && (
             <Badge 
               size={18} 
               style={[styles.categoryBadge, { backgroundColor: getCategoryColor(aiCategory) }]}
@@ -238,8 +239,8 @@ export const ChatListItem = React.memo(function ChatListItem({ chat, currentUser
             </Badge>
           )}
 
-          {/* High Priority Star */}
-          {isHighPriority && (
+          {/* High Priority Star - Only show for content creators */}
+          {isContentCreator && isHighPriority && (
             <Text style={styles.priorityStar}>⭐</Text>
           )}
           

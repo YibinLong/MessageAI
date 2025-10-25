@@ -166,6 +166,7 @@ export async function updateChatLastMessage(
         text: lastMessageText,
         senderId,
         timestamp: serverTimestamp(),
+        readBy: [], // Initialize as empty array - will be populated as users read the message
       },
       updatedAt: serverTimestamp(),
     };

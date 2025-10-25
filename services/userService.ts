@@ -43,6 +43,7 @@ export async function createUserDocument(
     displayName: string;
     photoURL?: string;
     bio?: string;
+    isContentCreator?: boolean;
   }
 ): Promise<void> {
   try {
@@ -52,6 +53,7 @@ export async function createUserDocument(
       displayName: data.displayName,
       photoURL: data.photoURL || null,
       bio: data.bio || null,
+      isContentCreator: data.isContentCreator ?? true, // Default to true if not specified
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
       online: true,
@@ -102,6 +104,7 @@ export async function updateUserProfile(
     displayName?: string;
     photoURL?: string;
     bio?: string;
+    isContentCreator?: boolean;
     online?: boolean;
     lastSeen?: Timestamp;
   }
@@ -111,6 +114,7 @@ export async function updateUserProfile(
     if (updates.displayName !== undefined) updateData.displayName = updates.displayName;
     if (updates.photoURL !== undefined) updateData.photoURL = updates.photoURL;
     if (updates.bio !== undefined) updateData.bio = updates.bio;
+    if (updates.isContentCreator !== undefined) updateData.isContentCreator = updates.isContentCreator;
     if (updates.online !== undefined) updateData.online = updates.online;
     if (updates.lastSeen !== undefined) updateData.lastSeen = updates.lastSeen;
     

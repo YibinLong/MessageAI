@@ -20,7 +20,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { getUserById } from '../services/userService';
-import { updateUserPresence } from '../services/userService';
 import { setupPresenceListener, updatePresence } from '../services/presenceService';
 import { 
   registerForPushNotificationsAsync, 
@@ -100,7 +99,9 @@ export default function RootLayout() {
           const userData = await getUserById(firebaseUser.uid);
           
           if (userData) {
-            await updateUserPresence(firebaseUser.uid, true);
+            // Set up presence tracking (also sets user online in Realtime Database)
+            // WHY: setupPresenceListener handles both setting online and configuring auto-offline
+            // WHAT: Returns cleanup function to set offline on signout
             const cleanupPresence: () => Promise<void> = await setupPresenceListener(firebaseUser.uid);
             presenceCleanupRef.current = cleanupPresence;
             
@@ -137,18 +138,34 @@ export default function RootLayout() {
   }, [isReady]);
 
   /**
-   * Track app foreground/background state for presence
+   * Track app foreground/background state for INSTANT presence updates
    * 
-   * WHY: Update user's online status when app is backgrounded/foregrounded
-   * WHAT: Listen to AppState changes and update presence accordingly
+   * WHY: Provide instant offline detection when user backgrounds app or locks phone
+   * WHAT: 
+   * - When app goes inactive/background: Immediately mark offline (0-200ms response)
+   * - When app returns to active: Mark online and heartbeat resumes
+   * 
+   * HOW THIS PROVIDES INSTANT DETECTION:
+   * - User backgrounds app → updatePresence(false) called synchronously
+   * - Other users' listeners fire within 200-500ms showing offline status
+   * - Much faster than waiting for heartbeat timeout (4s) or Firebase disconnect (30-60s)
    */
   useEffect(() => {
     if (!user) return;
     
     const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+      console.log('[App] AppState changed to:', nextAppState);
+      
       if (nextAppState === 'active') {
+        // User returned to app - mark online
+        // WHY: Heartbeat will resume from setupPresenceListener
+        console.log('[App] App became active, setting user online');
         await updatePresence(user.id, true);
-      } else if (nextAppState === 'background') {
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // User backgrounded app or locked phone - IMMEDIATELY mark offline
+        // WHY: Don't wait for heartbeat timeout or Firebase disconnect
+        // WHAT: Instant offline marking provides WhatsApp-like responsiveness
+        console.log('[App] App went to background/inactive, setting user offline IMMEDIATELY');
         await updatePresence(user.id, false);
       }
     });

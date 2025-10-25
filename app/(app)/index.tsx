@@ -41,6 +41,9 @@ export default function ChatListScreen() {
   const { user: currentUser } = useAuthStore();
   const { isConnected } = useNetworkStatus();
   
+  // Check if user is a content creator (default to true for existing users)
+  const isContentCreator = currentUser?.isContentCreator ?? true;
+  
   // State
   const [chats, setChats] = useState<Chat[]>([]);
   const [userProfiles, setUserProfiles] = useState<Map<string, User>>(new Map());
@@ -154,10 +157,15 @@ export default function ChatListScreen() {
   };
 
   /**
-   * Set up presence listeners for users
+   * Set up presence listeners for users with client-side staleness detection
    * 
-   * WHY: Need to show online/offline status in real-time
-   * WHAT: Sets up Realtime Database listeners for each user
+   * WHY: Need to show online/offline status in real-time with instant offline detection
+   * WHAT: Sets up Realtime Database listeners for each user with staleness check wrapper
+   * 
+   * CLIENT-SIDE STALENESS CHECK:
+   * - Wraps Firebase listener callback to check heartbeat age
+   * - If heartbeat is older than 4 seconds, override online status to false
+   * - Provides instant green dot removal in chat list
    * 
    * @param userIds - User IDs to track presence for
    */
@@ -168,8 +176,22 @@ export default function ChatListScreen() {
       // Skip if listener already exists
       if (existingListeners.has(userId)) return;
       
-      // Set up presence listener
+      // Set up presence listener with staleness detection wrapper
       const unsubscribe = listenToPresence(userId, (presence) => {
+        // CLIENT-SIDE STALENESS DETECTION
+        // WHY: Check heartbeat age before updating state for instant offline detection
+        // WHAT: If heartbeat is stale, override to offline even if Firebase says online
+        if (presence && presence.online && presence.lastHeartbeat) {
+          const heartbeatAge = Date.now() - presence.lastHeartbeat;
+          if (heartbeatAge > 4000) { // 4 second threshold
+            console.log(`[ChatList] Stale heartbeat for ${userId}: ${heartbeatAge}ms old, overriding to offline`);
+            presence = {
+              ...presence,
+              online: false, // Override to offline
+            };
+          }
+        }
+        
         setUserPresence(prev => {
           const newMap = new Map(prev);
           if (presence) {
@@ -314,7 +336,7 @@ export default function ChatListScreen() {
    * Render a single chat item
    * 
    * WHY: Display each chat in the list
-   * WHAT: Uses ChatListItem component with presence data
+   * WHAT: Uses ChatListItem component with presence data and content creator status
    */
   const renderChatItem = ({ item }: { item: Chat }) => {
     const otherUser = getOtherUser(item);
@@ -332,6 +354,7 @@ export default function ChatListScreen() {
         currentUserId={currentUser?.id || ''}
         otherUser={otherUser}
         isOnline={isOnline}
+        isContentCreator={isContentCreator}
         onPress={() => handleChatPress(item.id)}
       />
     );
@@ -407,8 +430,8 @@ export default function ChatListScreen() {
       {/* Connection Banner */}
       <ConnectionBanner />
 
-      {/* AI Filter Chips */}
-      {!loading && chats.length > 0 && (
+      {/* AI Filter Chips - Only visible to Content Creators */}
+      {isContentCreator && !loading && chats.length > 0 && (
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}

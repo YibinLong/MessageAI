@@ -16,6 +16,7 @@ import { Text, Divider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { signOut } from '../../services/auth';
 import { useAuthStore } from '../../stores/authStore';
+import { updatePresence } from '../../services/presenceService';
 
 /**
  * App Layout Component
@@ -25,8 +26,11 @@ import { useAuthStore } from '../../stores/authStore';
  */
 export default function AppLayout() {
   const router = useRouter();
-  const { clearUser } = useAuthStore();
+  const { user, clearUser } = useAuthStore();
   const [menuVisible, setMenuVisible] = useState(false);
+  
+  // Check if user is a content creator (default to true for existing users)
+  const isContentCreator = user?.isContentCreator ?? true;
 
   const handleEditProfile = () => {
     setMenuVisible(false);
@@ -36,6 +40,14 @@ export default function AppLayout() {
   const handleSignOut = async () => {
     try {
       setMenuVisible(false);
+      
+      // Set user offline BEFORE signing out
+      // WHY: Firebase signOut doesn't update presence, we need to manually set offline
+      // WHAT: Immediately updates Realtime Database so others see user as offline
+      if (user?.id) {
+        await updatePresence(user.id, false);
+      }
+      
       await signOut();
       clearUser();
       router.replace('/(auth)/signin');
@@ -156,52 +168,57 @@ export default function AppLayout() {
               <Text style={styles.menuText}>Edit Profile</Text>
             </TouchableOpacity>
 
-            <Divider style={styles.menuDivider} />
+            {/* AI Features - Only visible to Content Creators */}
+            {isContentCreator && (
+              <>
+                <Divider style={styles.menuDivider} />
 
-            {/* FAQ Settings */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/faq-settings');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="help-circle-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>FAQ Settings</Text>
-            </TouchableOpacity>
+                {/* FAQ Settings */}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    router.push('/(app)/faq-settings');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="help-circle-outline" size={22} color="#333" style={styles.menuIcon} />
+                  <Text style={styles.menuText}>FAQ Settings</Text>
+                </TouchableOpacity>
 
-            <Divider style={styles.menuDivider} />
+                <Divider style={styles.menuDivider} />
 
-            {/* AI Assistant */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/ai-chat');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>AI Assistant</Text>
-            </TouchableOpacity>
+                {/* AI Assistant */}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    router.push('/(app)/ai-chat');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="chatbubbles-outline" size={22} color="#333" style={styles.menuIcon} />
+                  <Text style={styles.menuText}>AI Assistant</Text>
+                </TouchableOpacity>
 
-            <Divider style={styles.menuDivider} />
+                <Divider style={styles.menuDivider} />
 
-            {/* Smart Replies */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push('/(app)/smart-replies');
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="flash-outline" size={22} color="#333" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Smart Replies</Text>
-            </TouchableOpacity>
+                {/* Smart Replies */}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    router.push('/(app)/smart-replies');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="flash-outline" size={22} color="#333" style={styles.menuIcon} />
+                  <Text style={styles.menuText}>Smart Replies</Text>
+                </TouchableOpacity>
 
-            <Divider style={styles.menuDivider} />
+                <Divider style={styles.menuDivider} />
+              </>
+            )}
 
             {/* Sign Out */}
             <TouchableOpacity

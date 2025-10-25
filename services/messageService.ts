@@ -562,6 +562,8 @@ export async function markMessagesAsRead(
     const snapshot = await getDocs(q);
     
     let updatedCount = 0;
+    let lastMessageId: string | null = null;
+    let lastMessageReadBy: string[] | null = null;
     
     // Update each unread message
     for (const docSnap of snapshot.docs) {
@@ -588,10 +590,39 @@ export async function markMessagesAsRead(
         // Update SQLite cache
         await updateMessageReadBy(messageId, newReadBy);
         
+        // Track the most recent message's readBy (first in desc order)
+        if (updatedCount === 0) {
+          lastMessageId = messageId;
+          lastMessageReadBy = newReadBy;
+        }
+        
         updatedCount++;
       } catch (error) {
         console.warn('[MessageService] Failed to mark message as read:', docSnap.id, error);
         // Continue with other messages
+      }
+    }
+    
+    // Update chat's lastMessage.readBy if we marked the most recent message as read
+    // WHY: This keeps the denormalized lastMessage in sync for group chat read receipts
+    // WHAT: Updates the readBy array in the chat document's lastMessage field
+    if (lastMessageId && lastMessageReadBy) {
+      try {
+        const chatRef = doc(db, 'chats', chatId);
+        const chatSnap = await getDoc(chatRef);
+        
+        if (chatSnap.exists()) {
+          const chatData = chatSnap.data();
+          // Only update if this is actually the last message in the chat
+          if (chatData.lastMessage?.id === lastMessageId) {
+            await updateDoc(chatRef, {
+              'lastMessage.readBy': lastMessageReadBy,
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('[MessageService] Failed to update chat lastMessage.readBy:', error);
+        // Don't throw - this is not critical
       }
     }
   } catch (error) {

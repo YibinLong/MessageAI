@@ -9,8 +9,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { TextInput, Button, Text, Avatar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { TextInput, Button, Text, Avatar, RadioButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { auth } from '../../services/firebase';
 import { pickImage, uploadProfilePicture } from '../../utils/imageUpload';
@@ -33,6 +33,7 @@ export default function ProfileSetupScreen() {
   const [bio, setBio] = useState('');
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+  const [isContentCreator, setIsContentCreator] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   
@@ -48,10 +49,15 @@ export default function ProfileSetupScreen() {
         setDisplayName(currentUser.displayName || '');
         setPhotoURL(currentUser.photoURL || null);
         
-        // Try to load bio from Firestore
+        // Try to load bio and user type from Firestore
         const userData = await getUserById(currentUser.uid);
-        if (userData?.bio) {
-          setBio(userData.bio);
+        if (userData) {
+          if (userData.bio) {
+            setBio(userData.bio);
+          }
+          if (userData.isContentCreator !== undefined) {
+            setIsContentCreator(userData.isContentCreator);
+          }
         }
       }
     };
@@ -91,6 +97,12 @@ export default function ProfileSetupScreen() {
         throw new Error('No user is signed in');
       }
       
+      // Validate required fields
+      if (isContentCreator === null) {
+        Alert.alert('Required Field', 'Please select your account type to continue');
+        return;
+      }
+      
       setLoading(true);
       
       let uploadedPhotoURL = photoURL;
@@ -105,11 +117,12 @@ export default function ProfileSetupScreen() {
       }
       
       // Update Firestore user document
-      // WHY: Store bio and photo URL in Firestore (Firebase Auth doesn't have bio field)
+      // WHY: Store bio, photo URL, and user type in Firestore (Firebase Auth doesn't have these fields)
       await updateUserProfile(currentUser.uid, {
         displayName: displayName.trim() || currentUser.displayName || 'User',
         photoURL: uploadedPhotoURL || undefined,
         bio: bio.trim() || undefined,
+        isContentCreator: isContentCreator,
       });
       
       // Update Firebase Auth profile (for displayName and photoURL)
@@ -214,6 +227,68 @@ export default function ProfileSetupScreen() {
         {bio.length}/150 characters
       </Text>
       
+      {/* Account Type Selection */}
+      <View style={styles.accountTypeSection}>
+        <Text variant="titleMedium" style={styles.accountTypeTitle}>
+          Account Type *
+        </Text>
+        <Text variant="bodySmall" style={styles.accountTypeDescription}>
+          Choose the type that best describes you
+        </Text>
+        
+        {/* Content Creator Option */}
+        <TouchableOpacity
+          style={[
+            styles.accountTypeOption,
+            isContentCreator === true && styles.accountTypeOptionSelected,
+          ]}
+          onPress={() => setIsContentCreator(true)}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <RadioButton
+            value="creator"
+            status={isContentCreator === true ? 'checked' : 'unchecked'}
+            onPress={() => setIsContentCreator(true)}
+            disabled={loading}
+          />
+          <View style={styles.accountTypeContent}>
+            <Text variant="titleSmall" style={styles.accountTypeLabel}>
+              Content Creator
+            </Text>
+            <Text variant="bodySmall" style={styles.accountTypeDesc}>
+              Get AI tools for managing DMs, FAQs, and smart replies
+            </Text>
+          </View>
+        </TouchableOpacity>
+        
+        {/* Regular User Option */}
+        <TouchableOpacity
+          style={[
+            styles.accountTypeOption,
+            isContentCreator === false && styles.accountTypeOptionSelected,
+          ]}
+          onPress={() => setIsContentCreator(false)}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <RadioButton
+            value="regular"
+            status={isContentCreator === false ? 'checked' : 'unchecked'}
+            onPress={() => setIsContentCreator(false)}
+            disabled={loading}
+          />
+          <View style={styles.accountTypeContent}>
+            <Text variant="titleSmall" style={styles.accountTypeLabel}>
+              Regular User
+            </Text>
+            <Text variant="bodySmall" style={styles.accountTypeDesc}>
+              Standard messaging experience
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+      
       {/* Upload progress indicator */}
       {uploading && (
         <Text variant="bodyMedium" style={styles.uploadingText}>
@@ -296,6 +371,46 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     marginTop: 8,
+  },
+  accountTypeSection: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  accountTypeTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  accountTypeDescription: {
+    color: '#666',
+    marginBottom: 16,
+  },
+  accountTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  accountTypeOptionSelected: {
+    borderColor: '#25D366',
+    backgroundColor: '#f0f9f4',
+  },
+  accountTypeContent: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  accountTypeLabel: {
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  accountTypeDesc: {
+    color: '#666',
+    lineHeight: 18,
   },
 });
 

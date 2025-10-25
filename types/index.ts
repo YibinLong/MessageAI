@@ -13,6 +13,7 @@ export interface User {
   displayName: string;           // Display name shown in chats
   photoURL?: string;             // Profile picture URL from Firebase Storage
   bio?: string;                  // User bio/status message
+  isContentCreator?: boolean;    // Whether user is a content creator (has access to AI features)
   createdAt: Timestamp;          // Account creation timestamp
   lastSeen: Timestamp;           // Last activity timestamp
   online: boolean;               // Current online status
@@ -33,6 +34,7 @@ export interface Chat {
     text: string;
     senderId: string;
     timestamp: Timestamp;
+    readBy?: string[];           // User IDs who have read this message (for group chat read receipts)
   };
   updatedAt: Timestamp;          // Last message timestamp (for sorting)
   createdBy: string;             // User who created the chat
