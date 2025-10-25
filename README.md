@@ -18,7 +18,7 @@ MessageAI is a production-ready messaging platform with:
 ## 📲 Try It Now
 
 **Download the Android APK:**
-[MessageAI APK Download](https://expo.dev/accounts/yibinlong/projects/messageai/builds/0ab54e9d-1cdc-4125-ae59-724eec9b6dd6)
+[MessageAI APK Download](https://expo.dev/accounts/yibinlong/projects/messageai/builds/fa4807b7-0e80-4e41-9047-7dd07ce8436f)
 
 Simply download and install on your Android device to try the app immediately!
 
@@ -140,18 +140,67 @@ Security rules have been deployed for:
 - **Storage:** Users can only upload to their own folders
 - **Realtime Database:** Users can only update their own presence status
 
-## 🤖 AI Features (In Development)
+## 🤖 AI Features
 
-The following AI features are designed for content creators managing fan interactions:
+The following AI features are designed for content creators managing fan interactions at scale:
 
-1. **Auto-categorization** - Sort messages by type (fan/business/spam/urgent)
-2. **Response drafting** - Generate replies matching creator's voice
-3. **FAQ auto-responder** - Handle common questions automatically
-4. **Sentiment analysis** - Flag concerning or priority messages
-5. **Collaboration scoring** - Identify partnership opportunities
-6. **Multi-step autonomous agent** - Complex workflow automation
+### 1. **Auto-Categorization** (Epic 3.1)
+Automatically sorts incoming messages into categories using GPT-4 analysis:
+- **Categories**: Fan mail, Business inquiry, Spam, Urgent
+- **How it works**: On message receive, Cloud Function analyzes content and updates chat metadata
+- **UI**: Color-coded badges on chat list for quick scanning
+- **Performance**: Runs server-side, no client delay
 
-> See [PRD.md](PRD.md) for detailed feature specifications.
+### 2. **Smart Reply Suggestions** (Epic 3.2)
+Generates 3 contextual quick replies for any message:
+- **Intelligence**: Analyzes conversation history for relevant responses
+- **Personalization**: Adapts to your messaging style over time
+- **UI**: Tap suggested reply to instantly send or edit before sending
+- **Speed**: <2 second generation using GPT-4
+
+### 3. **AI Response Drafting** (Epic 3.3)
+Generates full message drafts matching your communication style:
+- **Context-aware**: Reviews last 10 messages for conversation flow
+- **Voice matching**: Learns from your past messages to maintain authenticity
+- **Editable**: Draft appears in input box, fully editable before sending
+- **Use case**: Perfect for business inquiries requiring detailed responses
+
+### 4. **FAQ Auto-Detection & Response** (Epic 3.4)
+Detects common questions and suggests pre-written answers:
+- **Knowledge base**: Stores FAQ Q&A pairs you create in settings
+- **Detection**: Uses semantic similarity to match incoming questions
+- **RAG system**: Retrieves most relevant FAQ using vector embeddings
+- **Automation**: Optional auto-reply for truly common questions
+
+### 5. **Sentiment Analysis** (Epic 3.5)
+Flags messages requiring immediate attention:
+- **Emotions detected**: Negative, concerning, urgent, positive
+- **Priority scoring**: Urgent messages float to top of chat list
+- **Visual indicators**: Icons and colors highlight message tone
+- **Use case**: Never miss distressed fans or time-sensitive opportunities
+
+### 6. **Collaboration Opportunity Scoring** (Epic 3.6)
+Identifies potential partnership and business opportunities:
+- **Scoring factors**: Message content, sender history, engagement level
+- **Scale**: 0-100 score with reasoning explanation
+- **Filters**: Quickly sort by high-opportunity conversations
+- **Use case**: Surface brand deals and partnership inquiries automatically
+
+### 7. **Multi-Step Autonomous Agent** (Epic 3.7)
+Complex workflow automation with tool usage:
+- **Capabilities**: Searches message history, analyzes patterns, executes multi-step tasks
+- **Tools**: Message search, user lookup, conversation analysis
+- **Examples**: "Find all business inquiries from last month" or "Summarize feedback about my latest video"
+- **UI**: Dedicated agent screen with task status and results
+
+### 8. **AI Chat Assistant** (Epic 3.8)
+Personal AI assistant with access to your message context:
+- **Knowledge**: Full access to your conversation history for informed responses
+- **Use cases**: Brainstorm responses, analyze conversation trends, get advice
+- **Privacy**: Runs in secure Cloud Functions, respects your data permissions
+- **Interface**: Separate chat screen, feels like messaging a smart assistant
+
+> See [PRD.md](PRD.md) for detailed feature specifications and implementation details.
 
 ### AI Rate Limiting
 
