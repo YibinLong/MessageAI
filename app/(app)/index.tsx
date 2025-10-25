@@ -26,9 +26,9 @@ import { ChatListItem } from '../../components/ChatListItem';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { Timestamp } from 'firebase/firestore';
-import { listenToPresence, PresenceData } from '../../services/presenceService';
 import { firestoreChatDataToChat } from '../../utils/firestoreConverters';
 import { timestampToMillis } from '../../utils/dateUtils';
+import { usePresenceStore } from '../../stores/presenceStore';
 
 /**
  * Chat List Screen Component
@@ -44,10 +44,12 @@ export default function ChatListScreen() {
   // Check if user is a content creator (default to true for existing users)
   const isContentCreator = currentUser?.isContentCreator ?? true;
   
+  // Get presence store
+  const { startListening, stopListening, presenceMap } = usePresenceStore();
+  
   // State
   const [chats, setChats] = useState<Chat[]>([]);
   const [userProfiles, setUserProfiles] = useState<Map<string, User>>(new Map());
-  const [userPresence, setUserPresence] = useState<Map<string, PresenceData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -57,9 +59,6 @@ export default function ChatListScreen() {
   
   // Ref to track previous connection state for auto-refresh
   const wasOfflineRef = useRef(false);
-  
-  // Ref to store presence listener cleanup functions
-  const presenceListenersRef = useRef<Map<string, () => void>>(new Map());
   
 
   /**
@@ -83,11 +82,6 @@ export default function ChatListScreen() {
     // Cleanup listener on unmount
     return () => {
       unsubscribe();
-      
-      // Clean up all presence listeners
-      const listeners = presenceListenersRef.current;
-      listeners.forEach(unsubscribe => unsubscribe());
-      listeners.clear();
     };
   }, [currentUser]);
 
@@ -157,53 +151,23 @@ export default function ChatListScreen() {
   };
 
   /**
-   * Set up presence listeners for users with client-side staleness detection
+   * Set up presence listeners for users using global store
    * 
-   * WHY: Need to show online/offline status in real-time with instant offline detection
-   * WHAT: Sets up Realtime Database listeners for each user with staleness check wrapper
+   * WHY: Need to show online/offline status in real-time
+   * WHAT: Delegates to global presence store which handles all the heavy lifting
    * 
-   * CLIENT-SIDE STALENESS CHECK:
-   * - Wraps Firebase listener callback to check heartbeat age
-   * - If heartbeat is older than 4 seconds, override online status to false
-   * - Provides instant green dot removal in chat list
+   * BENEFITS:
+   * - Single listener per user across entire app (efficient)
+   * - Automatic staleness detection from presenceService
+   * - Instant consistency across all screens
    * 
    * @param userIds - User IDs to track presence for
    */
   const setupPresenceListeners = (userIds: string[]) => {
-    const existingListeners = presenceListenersRef.current;
-    
     userIds.forEach(userId => {
-      // Skip if listener already exists
-      if (existingListeners.has(userId)) return;
-      
-      // Set up presence listener with staleness detection wrapper
-      const unsubscribe = listenToPresence(userId, (presence) => {
-        // CLIENT-SIDE STALENESS DETECTION
-        // WHY: Check heartbeat age before updating state for instant offline detection
-        // WHAT: If heartbeat is stale, override to offline even if Firebase says online
-        if (presence && presence.online && presence.lastHeartbeat) {
-          const heartbeatAge = Date.now() - presence.lastHeartbeat;
-          if (heartbeatAge > 4000) { // 4 second threshold
-            console.log(`[ChatList] Stale heartbeat for ${userId}: ${heartbeatAge}ms old, overriding to offline`);
-            presence = {
-              ...presence,
-              online: false, // Override to offline
-            };
-          }
-        }
-        
-        setUserPresence(prev => {
-          const newMap = new Map(prev);
-          if (presence) {
-            newMap.set(userId, presence);
-          } else {
-            newMap.delete(userId);
-          }
-          return newMap;
-        });
-      });
-      
-      existingListeners.set(userId, unsubscribe);
+      // Start listening via global store
+      // WHY: Store handles deduplication, so safe to call multiple times
+      startListening(userId);
     });
   };
 
@@ -336,15 +300,16 @@ export default function ChatListScreen() {
    * Render a single chat item
    * 
    * WHY: Display each chat in the list
-   * WHAT: Uses ChatListItem component with presence data and content creator status
+   * WHAT: Uses ChatListItem component with presence data from global store
    */
   const renderChatItem = ({ item }: { item: Chat }) => {
     const otherUser = getOtherUser(item);
     
-    // Get online status for the other user (1:1 chats only)
+    // Get online status from GLOBAL store (1:1 chats only)
+    // WHY: Global store means this updates instantly when presence changes in ANY screen
     let isOnline = false;
     if (item.type === '1:1' && otherUser) {
-      const presence = userPresence.get(otherUser.id);
+      const presence = presenceMap.get(otherUser.id);
       isOnline = presence?.online || false;
     }
     

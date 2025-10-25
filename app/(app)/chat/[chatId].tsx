@@ -33,7 +33,8 @@ import {
 import { getChatById } from '../../../services/chatService';
 import { getUserById } from '../../../services/userService';
 import { Message, User, Chat } from '../../../types';
-import { listenToPresence, PresenceData } from '../../../services/presenceService';
+import { PresenceData } from '../../../services/presenceService';
+import { usePresenceStore } from '../../../stores/presenceStore';
 import { formatDistanceToNow } from 'date-fns';
 
 /**
@@ -101,12 +102,14 @@ export default function ChatScreen() {
   const { isConnected } = useNetworkStatus();
   const navigation = useNavigation();
   
+  // Get presence store
+  const { startListening, stopListening, presenceMap } = usePresenceStore();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [chat, setChat] = useState<Chat | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [participantProfiles, setParticipantProfiles] = useState<Map<string, User>>(new Map());
-  const [otherUserPresence, setOtherUserPresence] = useState<PresenceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
@@ -174,33 +177,36 @@ export default function ChatScreen() {
   }, [chatId, currentUser]);
 
   /**
-   * Set up presence listener for other user (1:1 chats only)
+   * Set up presence listener for other user using global store (1:1 chats only)
    * 
    * WHY: Show online/offline status and last seen in chat header
-   * WHAT: Listens to Realtime Database for other user's presence
+   * WHAT: Uses global presence store - when presence updates here, it updates EVERYWHERE
+   * 
+   * THIS IS THE KEY: When we detect someone went offline in this chat screen,
+   * the global store updates, and the green dot on the chat list disappears instantly!
    */
   useEffect(() => {
     if (!otherUser || chat?.type === 'group') return; // Only for 1:1 chats
     
-    const unsubscribe = listenToPresence(otherUser.id, (presence) => {
-      setOtherUserPresence(presence);
-    });
+    // Start listening via global store
+    startListening(otherUser.id);
 
+    // Cleanup: stop listening when unmounting
     return () => {
-      unsubscribe();
+      stopListening(otherUser.id);
     };
-  }, [otherUser, chat]);
+  }, [otherUser, chat, startListening, stopListening]);
 
   /**
-   * Update header title dynamically with presence info and staleness detection
+   * Update header title dynamically with presence info from global store
    * 
-   * WHY: Need to show chat name and presence status reactively with instant offline detection
-   * WHAT: Updates navigation header whenever chat, presence, or profiles change
+   * WHY: Need to show chat name and presence status reactively
+   * WHAT: Reads presence from global store and updates navigation header
    * 
-   * CLIENT-SIDE STALENESS CHECK:
-   * - Even if Firebase says user is online, check lastHeartbeat timestamp
-   * - If heartbeat is older than 4 seconds, show as offline
-   * - Provides instant visual feedback without waiting for Firebase listener
+   * HOW IT WORKS WITH GLOBAL STORE:
+   * - presenceMap is reactive (from Zustand)
+   * - When presence updates in ANY screen, this effect re-runs
+   * - Header shows current online/offline status instantly
    */
   useLayoutEffect(() => {
     if (!chat) return;
@@ -213,8 +219,11 @@ export default function ChatScreen() {
       title = chat.name || 'Group Chat';
       subtitle = `${chat.participants.length} members`;
     } else {
-      // 1:1 chat: show user name and presence
+      // 1:1 chat: show user name and presence from GLOBAL store
       title = otherUser?.displayName || 'Chat';
+      
+      // Get presence from global store
+      const otherUserPresence = otherUser ? presenceMap.get(otherUser.id) : null;
       
       // Format presence status with client-side staleness detection
       if (otherUserPresence) {
@@ -260,7 +269,7 @@ export default function ChatScreen() {
       // WHAT: Passes a React component that properly styles multi-line headers
       headerTitle: () => <HeaderTitle title={title} subtitle={subtitle} />,
     });
-  }, [chat, otherUser, otherUserPresence, navigation]);
+  }, [chat, otherUser, presenceMap, navigation]);
 
   /**
    * Load messages from SQLite cache (instant display)
@@ -479,40 +488,6 @@ export default function ChatScreen() {
       />
     );
   }, [currentUser, chat, participantProfiles, handleImagePress]);
-
-  /**
-   * Format presence status for header
-   * 
-   * WHY: Show "Online" or "Last seen X ago" based on presence data
-   * WHAT: Returns formatted presence string
-   */
-  const getPresenceStatus = useCallback((): string => {
-    if (!otherUserPresence) return '';
-    
-    if (otherUserPresence.online) {
-      return 'Online';
-    }
-    
-    // Show last seen timestamp
-    try {
-      const lastSeenDate = new Date(otherUserPresence.lastSeen);
-      const now = new Date();
-      const diffInSeconds = Math.floor((now.getTime() - lastSeenDate.getTime()) / 1000);
-      
-      // If less than 1 minute, show "just now"
-      if (diffInSeconds < 60) {
-        return 'Last seen just now';
-      }
-      
-      const distance = formatDistanceToNow(lastSeenDate, { addSuffix: false })
-        .replace('about ', '')
-        .replace('less than ', '');
-      
-      return `Last seen ${distance} ago`;
-    } catch (error) {
-      return '';
-    }
-  }, [otherUserPresence]);
 
   /**
    * Key extractor for FlatList

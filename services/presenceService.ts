@@ -64,7 +64,7 @@ export async function updatePresence(userId: string, online: boolean): Promise<v
     await set(presenceRef, {
       online,
       lastSeen: now,
-      lastHeartbeat: online ? now : undefined, // Set heartbeat only when online
+      lastHeartbeat: online ? now : null, // Set heartbeat only when online, use null not undefined
     });
     
     console.log('[PresenceService] Presence updated successfully at:', now);
