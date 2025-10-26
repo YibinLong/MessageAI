@@ -68,8 +68,16 @@ export async function updatePresence(userId: string, online: boolean): Promise<v
     });
     
     console.log('[PresenceService] Presence updated successfully at:', now);
-  } catch (error) {
-    console.error('[PresenceService] Failed to update presence:', error);
+  } catch (error: any) {
+    // Silently ignore permission errors (user not authenticated)
+    // WHY: Permission errors are expected when not logged in
+    if (error?.code !== 'PERMISSION_DENIED' && !error?.message?.includes('permission_denied')) {
+      console.error('[PresenceService] Failed to update presence:', error);
+    }
+    // Don't throw permission errors, they're expected
+    if (error?.code === 'PERMISSION_DENIED' || error?.message?.includes('permission_denied')) {
+      return;
+    }
     throw error;
   }
 }
@@ -134,8 +142,13 @@ export async function setupPresenceListener(userId: string): Promise<() => Promi
           lastHeartbeat: heartbeatTime,
         });
         console.log('[PresenceService] Heartbeat sent at:', heartbeatTime);
-      } catch (error) {
-        console.error('[PresenceService] Heartbeat failed:', error);
+      } catch (error: any) {
+        // Check if it's a permission error (expected when user logs out or isn't authenticated)
+        // WHY: Permission errors are normal when not logged in, don't spam console
+        // WHAT: Only log non-permission errors
+        if (error?.code !== 'PERMISSION_DENIED' && !error?.message?.includes('permission_denied')) {
+          console.error('[PresenceService] Heartbeat failed:', error);
+        }
         // Don't throw - let it retry on next interval
       }
     }, HEARTBEAT_INTERVAL);

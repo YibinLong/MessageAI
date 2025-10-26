@@ -152,12 +152,44 @@ export default function ProfileSetupScreen() {
   };
   
   /**
-   * Handle skip (for optional profile setup)
+   * Handle skip (for optional fields like profile picture and bio)
    * 
-   * WHY: Profile picture and bio are optional, user can skip and add later
+   * WHY: Profile picture and bio are optional, but account type is required
+   * WHAT: Only allow skip if user has already completed profile (editing mode)
    */
-  const handleSkip = () => {
-    router.replace('/(app)');
+  const handleSkip = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is signed in');
+      }
+      
+      // Validate that account type is selected (required for new users)
+      if (isContentCreator === null) {
+        Alert.alert('Required Field', 'Please select your account type to continue');
+        return;
+      }
+      
+      setLoading(true);
+      
+      // Update only the account type, skip photo and bio
+      await updateUserProfile(currentUser.uid, {
+        isContentCreator: isContentCreator,
+      });
+      
+      // Fetch updated user data and update Zustand store
+      const updatedUserData = await getUserById(currentUser.uid);
+      if (updatedUserData) {
+        setUser(updatedUserData);
+      }
+      
+      console.log('[ProfileSetup] Profile setup completed (skipped optional fields)');
+      router.replace('/(app)');
+    } catch (error: any) {
+      console.error('[ProfileSetup] Failed to skip:', error);
+      Alert.alert('Error', error.message || 'Failed to complete setup');
+      setLoading(false);
+    }
   };
   
   // Determine which image to show in avatar
@@ -308,17 +340,15 @@ export default function ProfileSetupScreen() {
         {user ? 'Save Changes' : 'Complete Setup'}
       </Button>
       
-      {/* Skip Button (only show for new users, not when editing) */}
-      {!user && (
-        <Button
-          mode="text"
-          onPress={handleSkip}
-          disabled={loading}
-          style={styles.skipButton}
-        >
-          Skip for now
-        </Button>
-      )}
+      {/* Skip Button (allows skipping optional photo/bio, but requires account type) */}
+      <Button
+        mode="text"
+        onPress={handleSkip}
+        disabled={loading}
+        style={styles.skipButton}
+      >
+        {user ? 'Cancel' : 'Continue without photo'}
+      </Button>
     </ScrollView>
   );
 }

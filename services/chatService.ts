@@ -138,10 +138,12 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
  * WHAT: 
  * - Updates lastMessage and updatedAt fields in Firestore
  * - Increments unread count for all participants except the sender
+ * - Preserves existing readBy array if message already exists (for offline retry scenario)
  * 
  * @param chatId - Chat ID to update
  * @param lastMessageText - Text of the last message
  * @param senderId - ID of user who sent the message
+ * @param messageId - Optional message ID (used to check if message exists and preserve readBy)
  */
 export async function updateChatLastMessage(
   chatId: string,
@@ -158,7 +160,31 @@ export async function updateChatLastMessage(
       return;
     }
     
-    const participants = chatSnap.data().participants || [];
+    const chatData = chatSnap.data();
+    const participants = chatData.participants || [];
+    const currentLastMessageId = chatData.lastMessage?.id;
+    
+    // Check if this is the same message being retried (offline message coming back online)
+    // WHY: When retrying offline messages, we don't want to increment unread counts again
+    // or reset the readBy array
+    const isRetry = messageId && currentLastMessageId === messageId;
+    
+    // Check if this message already exists in Firestore (to preserve readBy)
+    // WHY: When retrying offline messages, the message might already exist and have readBy data
+    // WHAT: If messageId is provided, check if the message exists and get its readBy array
+    let existingReadBy: string[] = [];
+    if (messageId) {
+      try {
+        const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+        const messageSnap = await getDoc(messageRef);
+        if (messageSnap.exists()) {
+          existingReadBy = messageSnap.data().readBy || [];
+        }
+      } catch (error) {
+        // If message doesn't exist yet or can't be fetched, use empty array
+        console.warn('[ChatService] Could not fetch existing message readBy:', error);
+      }
+    }
     
     const updateData: any = {
       lastMessage: {
@@ -166,16 +192,20 @@ export async function updateChatLastMessage(
         text: lastMessageText,
         senderId,
         timestamp: serverTimestamp(),
-        readBy: [], // Initialize as empty array - will be populated as users read the message
+        readBy: existingReadBy, // Use existing readBy if message exists, otherwise empty array
       },
       updatedAt: serverTimestamp(),
     };
     
-    participants.forEach((participantId: string) => {
-      if (participantId !== senderId) {
-        updateData[`unreadCounts.${participantId}`] = increment(1);
-      }
-    });
+    // Only increment unread counts if this is a NEW message (not a retry)
+    // WHY: Retrying an offline message shouldn't increment unread counts again
+    if (!isRetry) {
+      participants.forEach((participantId: string) => {
+        if (participantId !== senderId) {
+          updateData[`unreadCounts.${participantId}`] = increment(1);
+        }
+      });
+    }
     
     await updateDoc(chatRef, updateData);
   } catch (error) {

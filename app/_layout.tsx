@@ -200,18 +200,34 @@ export default function RootLayout() {
   /**
    * Handle auth routing
    * 
-   * WHY: Redirect users to appropriate screens based on auth status
-   * WHAT: If logged in → go to (app), if not → go to (auth)
+   * WHY: Redirect users to appropriate screens based on auth status and profile completion
+   * WHAT: 
+   * - If user exists and profile is complete (has isContentCreator set) → go to (app)
+   * - If user exists but profile is incomplete → go to profile-setup
+   * - If no user → go to signin
    */
   useEffect(() => {
     if (!isReady) return;
     
     const inAuthGroup = segments[0] === '(auth)';
     const inAppGroup = segments[0] === '(app)';
+    const onProfileSetup = segments[1] === 'profile-setup';
 
-    if (user && !inAppGroup) {
-      router.replace('/(app)');
+    if (user) {
+      // Check if user has completed profile setup (isContentCreator must be set)
+      const hasCompletedProfile = user.isContentCreator !== null && user.isContentCreator !== undefined;
+      
+      if (!hasCompletedProfile && !onProfileSetup) {
+        // User hasn't completed profile setup, redirect to profile-setup
+        console.log('[App] User profile incomplete, redirecting to profile-setup');
+        router.replace('/(auth)/profile-setup');
+      } else if (hasCompletedProfile && !inAppGroup) {
+        // User has completed profile, redirect to main app
+        console.log('[App] User profile complete, redirecting to app');
+        router.replace('/(app)');
+      }
     } else if (!user && !inAuthGroup) {
+      // No user logged in, redirect to signin
       router.replace('/(auth)/signin');
     }
   }, [user, segments, isReady]);

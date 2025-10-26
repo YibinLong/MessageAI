@@ -98,7 +98,9 @@ export function firestoreToUser(doc: DocumentSnapshot): User {
     displayName: data.displayName,
     photoURL: data.photoURL,
     bio: data.bio,
-    isContentCreator: data.isContentCreator ?? true, // Default to true for existing users
+    // Don't default isContentCreator - preserve null for incomplete profiles
+    // WHY: Null indicates user hasn't completed profile setup yet
+    isContentCreator: data.isContentCreator,
     createdAt: data.createdAt as Timestamp,
     lastSeen: data.lastSeen as Timestamp,
     online: data.online,
@@ -123,7 +125,9 @@ export function firestoreUserDataToUser(data: any, docId?: string): User {
     displayName: data.displayName,
     photoURL: data.photoURL,
     bio: data.bio,
-    isContentCreator: data.isContentCreator ?? true, // Default to true for existing users
+    // Don't default isContentCreator - preserve null for incomplete profiles
+    // WHY: Null indicates user hasn't completed profile setup yet
+    isContentCreator: data.isContentCreator,
     createdAt: data.createdAt as Timestamp,
     lastSeen: data.lastSeen as Timestamp,
     online: data.online,

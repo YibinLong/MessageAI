@@ -53,7 +53,9 @@ export async function createUserDocument(
       displayName: data.displayName,
       photoURL: data.photoURL || null,
       bio: data.bio || null,
-      isContentCreator: data.isContentCreator ?? true, // Default to true if not specified
+      // Don't set isContentCreator during initial signup - user must complete profile setup
+      // WHY: If we set it here, the user is considered "complete" and auth routing skips profile setup
+      isContentCreator: data.isContentCreator !== undefined ? data.isContentCreator : null,
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
       online: true,
